@@ -132,7 +132,7 @@ window.addEventListener("load", function() {
             });
         });
 
-        / --- JQUERY ELEMENTOR SUBMIT_SUCCESS LOGIK ---
+        // --- JQUERY ELEMENTOR SUBMIT_SUCCESS LOGIK ---
         function initTrackingHubTracking() {
             if (typeof jQuery === 'undefined') {
                 setTimeout(initTrackingHubTracking, 100);
@@ -142,7 +142,7 @@ window.addEventListener("load", function() {
             jQuery(document).on('submit_success', function(event, response) {
                 var form = event.target;
                 
-                // NEU: Der Gatekeeper prüft jetzt AUSSCHLIESSLICH auf das E-Mail-Feld
+                // Der Gatekeeper prüft jetzt AUSSCHLIESSLICH auf das E-Mail-Feld
                 if (form && form.querySelector('[id="' + config.userDataFields.email + '"]')) {
                     
                     function getSafeValue(fieldId) {
