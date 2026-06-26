@@ -1,14 +1,13 @@
-// --- V3.1_EXTERNAL_CONFIGURABLE_EVENT ---
+// --- V3.5_EXTERNAL_THUB_BACKWARDS_COMPATIBLE ---
 window.addEventListener("load", function() {
     // 1. Konfiguration abrufen
-    const config = window.naoLeadConfig;
+    const config = window.TrackingHubLeadConfig;
 
     if (!config || !config.fields) {
-        console.error("Die Konfiguration 'window.naoLeadConfig' wurde nicht gefunden.");
+        console.error("Die Konfiguration 'window.TrackingHubLeadConfig' wurde nicht gefunden.");
         return;
     }
 
-    // Fallback, falls userDataFields in der Config vergessen wurde
     config.userDataFields = config.userDataFields || {};
 
     function getCookie(name) {
@@ -51,13 +50,24 @@ window.addEventListener("load", function() {
         fallbackFbc = `fb.1.${Date.now()}.${fbclid}`;
     }
 
-    const nliValue = urlParams.get('nli');
-    let currentLeadId = getCookie(config.cookieName);
+    // --- NEU: RÜCKWÄRTSKOMPATIBILITÄT FÜR URL UND COOKIES ---
+    // 1. Suche nach neuem URL Parameter ODER alten URL Parametern
+    const thubValue = urlParams.get('thub') || urlParams.get('nli') || urlParams.get('nil');
+    
+    // 2. Suche nach neuem Cookie ODER altem Cookie
+    let currentLeadId = getCookie(config.cookieName) || getCookie('nao_lead_id');
 
-    if (nliValue) {
-        setCookie(config.cookieName, nliValue, 90);
-        currentLeadId = nliValue; 
-    } else if (!currentLeadId) {
+    // 3. Logik: URL schlägt Cookie. Wenn alt gefunden, auf neu updaten.
+    if (thubValue) {
+        // URL hat Prio. Wir speichern den Wert (egal ob alt oder neu) in das NEUE Cookie
+        setCookie(config.cookieName, thubValue, 90);
+        currentLeadId = thubValue; 
+    } else if (currentLeadId) {
+        // Keine URL, aber Cookie gefunden (vielleicht das alte).
+        // Wir speichern den Wert zur Sicherheit noch mal in das NEUE Cookie ab (Migration)
+        setCookie(config.cookieName, currentLeadId, 90);
+    } else {
+        // Überhaupt kein Lead bekannt: Neue ID generieren
         currentLeadId = crypto.randomUUID();
         setCookie(config.cookieName, currentLeadId, 90);
     }
@@ -73,7 +83,7 @@ window.addEventListener("load", function() {
         const realFbc = getCookie('_fbc');
         const realFbp = getCookie('_fbp');
 
-        fillMultiple(config.fields.lead, currentLeadId);
+        fillMultiple(config.fields.lead_id, currentLeadId);
         fillMultiple(config.fields.ua, navigator.userAgent);
         fillMultiple(config.fields.url, window.location.href.split(/[?#]/)[0]);
 
@@ -112,47 +122,54 @@ window.addEventListener("load", function() {
         });
     });
 
-    // --- DATALAYER PUSH BEIM ABSENDEN ---
-    function getSafeValue(fieldId) {
-        if (!fieldId) return "";
-        const el = document.getElementById(fieldId);
-        return el ? el.value : "";
+    // --- JQUERY ELEMENTOR SUBMIT_SUCCESS LOGIK ---
+    function initTrackingHubTracking() {
+        if (typeof jQuery === 'undefined') {
+            setTimeout(initTrackingHubTracking, 100);
+            return;
+        }
+
+        jQuery(document).on('submit_success', function(event, response) {
+            var form = event.target;
+            
+            if (form && form.querySelector('[id="' + config.fields.lead_id + '"]')) {
+                
+                function getSafeValue(fieldId) {
+                    if (!fieldId) return "";
+                    var field = form.querySelector('[id="' + fieldId + '"]');
+                    return field ? field.value : "";
+                }
+
+                const dlEventName = config.eventName || 'sst_form_submitted';
+
+                window.dataLayer = window.dataLayer || [];
+                window.dataLayer.push({
+                    'event': dlEventName,
+                    'user_data': {
+                        'email_address': getSafeValue(config.userDataFields.email),
+                        'phone_number': getSafeValue(config.userDataFields.phone),
+                        'first_name': getSafeValue(config.userDataFields.firstName),
+                        'last_name': getSafeValue(config.userDataFields.lastName),
+                        'address': {
+                            'city': getSafeValue(config.userDataFields.city),
+                            'postal_code': getSafeValue(config.userDataFields.postalCode),
+                            'country': getSafeValue(config.userDataFields.country)
+                        }
+                    },
+                    'tracking_data': {
+                        'lead_id': getSafeValue(config.fields.lead_id),
+                        'user_agent': getSafeValue(config.fields.ua),
+                        'page_url': getSafeValue(config.fields.url),
+                        'fbc': getSafeValue(config.fields.fbc),
+                        'fbp': getSafeValue(config.fields.fbp),
+                        'gclid': getSafeValue(config.fields.gclid),
+                        'wbraid': getSafeValue(config.fields.wbraid),
+                        'gbraid': getSafeValue(config.fields.gbraid)
+                    }
+                });
+            }
+        });
     }
 
-    // Wir hören auf Formular-Absendungen auf der gesamten Seite
-    document.addEventListener('submit', function(event) {
-        const form = event.target;
-        
-        if (form && form.querySelector('[id="' + config.fields.lead + '"]')) {
-            
-            // NEU: Den Event-Namen aus der Config laden, oder Fallback nutzen
-            const dlEventName = config.eventName || 'sst_form_submitted';
-
-            window.dataLayer = window.dataLayer || [];
-            window.dataLayer.push({
-                'event': dlEventName,
-                'user_data': {
-                    'email_address': getSafeValue(config.userDataFields.email),
-                    'phone_number': getSafeValue(config.userDataFields.phone),
-                    'first_name': getSafeValue(config.userDataFields.firstName),
-                    'last_name': getSafeValue(config.userDataFields.lastName),
-                    'address': {
-                        'city': getSafeValue(config.userDataFields.city),
-                        'postal_code': getSafeValue(config.userDataFields.postalCode),
-                        'country': getSafeValue(config.userDataFields.country)
-                    }
-                },
-                'tracking_data': {
-                    'lead_id': getSafeValue(config.fields.lead),
-                    'user_agent': getSafeValue(config.fields.ua),
-                    'page_url': getSafeValue(config.fields.url),
-                    'fbc': getSafeValue(config.fields.fbc),
-                    'fbp': getSafeValue(config.fields.fbp),
-                    'gclid': getSafeValue(config.fields.gclid),
-                    'wbraid': getSafeValue(config.fields.wbraid),
-                    'gbraid': getSafeValue(config.fields.gbraid)
-                }
-            });
-        }
-    });
+    initTrackingHubTracking();
 });
