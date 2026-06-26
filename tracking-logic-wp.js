@@ -1,4 +1,4 @@
-// --- V2.2_EXTERNAL_DELAYED ---
+// --- V3.1_EXTERNAL_CONFIGURABLE_EVENT ---
 window.addEventListener("load", function() {
     // 1. Konfiguration abrufen
     const config = window.naoLeadConfig;
@@ -7,6 +7,9 @@ window.addEventListener("load", function() {
         console.error("Die Konfiguration 'window.naoLeadConfig' wurde nicht gefunden.");
         return;
     }
+
+    // Fallback, falls userDataFields in der Config vergessen wurde
+    config.userDataFields = config.userDataFields || {};
 
     function getCookie(name) {
         const parts = document.cookie.split(';');
@@ -59,6 +62,7 @@ window.addEventListener("load", function() {
         setCookie(config.cookieName, currentLeadId, 90);
     }
 
+    // --- FELDER BEFÜLLEN ---
     function fillAllFields() {
         function fillMultiple(fieldId, value) {
             if (!fieldId || !value) return;
@@ -106,5 +110,49 @@ window.addEventListener("load", function() {
         document.addEventListener(evt, () => {
             setTimeout(fillAllFields, 100);
         });
+    });
+
+    // --- DATALAYER PUSH BEIM ABSENDEN ---
+    function getSafeValue(fieldId) {
+        if (!fieldId) return "";
+        const el = document.getElementById(fieldId);
+        return el ? el.value : "";
+    }
+
+    // Wir hören auf Formular-Absendungen auf der gesamten Seite
+    document.addEventListener('submit', function(event) {
+        const form = event.target;
+        
+        if (form && form.querySelector('[id="' + config.fields.lead + '"]')) {
+            
+            // NEU: Den Event-Namen aus der Config laden, oder Fallback nutzen
+            const dlEventName = config.eventName || 'sst_form_submitted';
+
+            window.dataLayer = window.dataLayer || [];
+            window.dataLayer.push({
+                'event': dlEventName,
+                'user_data': {
+                    'email_address': getSafeValue(config.userDataFields.email),
+                    'phone_number': getSafeValue(config.userDataFields.phone),
+                    'first_name': getSafeValue(config.userDataFields.firstName),
+                    'last_name': getSafeValue(config.userDataFields.lastName),
+                    'address': {
+                        'city': getSafeValue(config.userDataFields.city),
+                        'postal_code': getSafeValue(config.userDataFields.postalCode),
+                        'country': getSafeValue(config.userDataFields.country)
+                    }
+                },
+                'tracking_data': {
+                    'lead_id': getSafeValue(config.fields.lead),
+                    'user_agent': getSafeValue(config.fields.ua),
+                    'page_url': getSafeValue(config.fields.url),
+                    'fbc': getSafeValue(config.fields.fbc),
+                    'fbp': getSafeValue(config.fields.fbp),
+                    'gclid': getSafeValue(config.fields.gclid),
+                    'wbraid': getSafeValue(config.fields.wbraid),
+                    'gbraid': getSafeValue(config.fields.gbraid)
+                }
+            });
+        }
     });
 });
