@@ -1,7 +1,6 @@
-// --- V3.9_EXTERNAL_THUB_HYBRID_MASTER ---
+// --- V3.9.4_EXTERNAL_THUB_HYBRID_MASTER (Minuten-Timer & Redundanz-Schleife) ---
 window.addEventListener("load", function() {
     
-    // 1. URL-Parameter sofort beim ersten Laden abfangen und im localStorage sichern
     const urlParams = new URLSearchParams(window.location.search);
     
     function getCleanParam(paramName) {
@@ -9,16 +8,45 @@ window.addEventListener("load", function() {
         return val ? val.replace(/\+/g, ' ') : null;
     }
 
-    // Klick-IDs und UTMs in den localStorage retten (Sicher vor Tab-Wechseln und URL-Verlust)
+    // --- Timer in Minuten (30 Minuten empfohlen für eine Session) ---
+    const storageExpiryMinutes = 30; 
+
+    function setStorageWithExpiry(key, value, minutes) {
+        const now = new Date();
+        const item = {
+            value: value,
+            // Umrechnung von Minuten in Millisekunden
+            expiry: now.getTime() + (minutes * 60 * 1000)
+        };
+        localStorage.setItem(key, JSON.stringify(item));
+    }
+
+    function getStorageWithExpiry(key) {
+        const itemStr = localStorage.getItem(key);
+        if (!itemStr) return ""; 
+        try {
+            const item = JSON.parse(itemStr);
+            if (item && item.expiry) {
+                // Prüfen, ob die Zeit abgelaufen ist
+                if (new Date().getTime() > item.expiry) {
+                    localStorage.removeItem(key); 
+                    return "";
+                }
+                return item.value || "";
+            }
+        } catch (e) {}
+        return itemStr; 
+    }
+
+    // 1. Klick-IDs und UTMs abfangen und speichern (Überschreibt alte Werte automatisch!)
     const paramsToStore = ['gclid', 'wbraid', 'gbraid', 'fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
     paramsToStore.forEach(param => {
         const val = getCleanParam(param);
         if (val !== null) {
-            localStorage.setItem('thub_' + param, val);
+            setStorageWithExpiry('thub_' + param, val, storageExpiryMinutes);
         }
     });
 
-    // Künstliche Verzögerung von 800ms nach dem Laden für das restliche Setup
     setTimeout(function() {
         
         const config = window.TrackingHubLeadConfig;
@@ -30,7 +58,6 @@ window.addEventListener("load", function() {
 
         config.userDataFields = config.userDataFields || {};
 
-        // --- Hilfsfunktionen ---
         function generateUUID() {
             if (typeof crypto !== 'undefined' && crypto.randomUUID) {
                 return crypto.randomUUID();
@@ -68,36 +95,40 @@ window.addEventListener("load", function() {
             }
         }
 
-        // --- Facebook FBC Cookie Logik (Schutz vor Überschreiben) ---
-        const storedFbclid = localStorage.getItem('thub_fbclid');
+        const storedFbclid = getStorageWithExpiry('thub_fbclid');
         let fallbackFbc = null;
-        if (storedFbclid) {
+        if (storedFbclid && storedFbclid !== "") {
             fallbackFbc = `fb.1.${Date.now()}.${storedFbclid}`;
             if (!getCookie('_fbc')) {
                 setCookie('_fbc', fallbackFbc, 90);
             }
         }
 
-        // --- LEAD ID MANAGEMENT (Mit dedizierter Schutz- & Override-Logik) ---
+        // --- LEAD ID MANAGEMENT (Wiederbelebungs-Schleife Cookie + LocalStorage) ---
         const thubOverrideValue = getCleanParam('thub') || getCleanParam('nli') || getCleanParam('nil');
-        let currentLeadId = getCookie(config.cookieName) || getCookie('nao_lead_id');
+        const cookieLeadId = getCookie(config.cookieName) || getCookie('nao_lead_id');
+        const lsLeadId = localStorage.getItem(config.cookieName);
+        
+        let currentLeadId = "";
 
         if (thubOverrideValue) {
-            // URL-Befehl: Überschreiben erzwungen, wenn Parameter existiert UND ungleich dem aktuellen Cookie ist
-            if (thubOverrideValue !== currentLeadId) {
-                setCookie(config.cookieName, thubOverrideValue, 90);
-                currentLeadId = thubOverrideValue;
-            }
-        } else if (!currentLeadId) {
-            // Kein Cookie vorhanden: Frisch generieren
-            currentLeadId = generateUUID();
-            setCookie(config.cookieName, currentLeadId, 90);
+            // 1. URL-Parameter (z.B. aus CRM) gewinnt immer
+            currentLeadId = thubOverrideValue;
+        } else if (cookieLeadId) {
+            // 2. Cookie existiert regulär
+            currentLeadId = cookieLeadId;
+        } else if (lsLeadId) {
+            // 3. Cookie wurde gelöscht (z.B. Safari ITP), LocalStorage rettet die ID!
+            currentLeadId = lsLeadId;
         } else {
-            // Cookie existiert bereits und kein URL-Override aktiv: Sicher beibehalten und Ablaufdatum auffrischen
-            setCookie(config.cookieName, currentLeadId, 90);
+            // 4. Völlig neuer Nutzer: ID generieren
+            currentLeadId = generateUUID();
         }
 
-        // --- HIDDEN FIELDS BEFÜLLEN (Für das CRM) ---
+        // Jetzt wird die ID an BEIDEN Orten gespeichert bzw. die Laufzeit aufgefrischt
+        setCookie(config.cookieName, currentLeadId, 90); // Auffrischen des Cookies
+        localStorage.setItem(config.cookieName, currentLeadId); // Speichern im LocalStorage für Unsterblichkeit
+
         function fillAllFields() {
             function fillMultiple(fieldId, value) {
                 if (!fieldId || !value) return;
@@ -105,18 +136,16 @@ window.addEventListener("load", function() {
                 elements.forEach(el => safeSetValue(el, value));
             }
 
-            // Befüllt nur noch die 6 für dein Backend/CRM relevanten Felder im HTML
             fillMultiple(config.trackingfields.lead_id, currentLeadId);
-            fillMultiple(config.trackingfields.utm_source, localStorage.getItem('thub_utm_source'));
-            fillMultiple(config.trackingfields.utm_medium, localStorage.getItem('thub_utm_medium'));
-            fillMultiple(config.trackingfields.utm_campaign, localStorage.getItem('thub_utm_campaign'));
-            fillMultiple(config.trackingfields.utm_content, localStorage.getItem('thub_utm_content'));
-            fillMultiple(config.trackingfields.utm_term, localStorage.getItem('thub_utm_term'));
+            fillMultiple(config.trackingfields.utm_source, getStorageWithExpiry('thub_utm_source'));
+            fillMultiple(config.trackingfields.utm_medium, getStorageWithExpiry('thub_utm_medium'));
+            fillMultiple(config.trackingfields.utm_campaign, getStorageWithExpiry('thub_utm_campaign'));
+            fillMultiple(config.trackingfields.utm_content, getStorageWithExpiry('thub_utm_content'));
+            fillMultiple(config.trackingfields.utm_term, getStorageWithExpiry('thub_utm_term'));
 
             return true; 
         }
 
-        // Polling-Intervall für dynamische Formulare (Elementor Popups etc.)
         let count = 0;
         const fbInterval = setInterval(() => {
             count++;
@@ -129,7 +158,6 @@ window.addEventListener("load", function() {
             });
         });
 
-        // --- SUBMIT LOGIK (Elementor Success Gateway) ---
         function initTrackingHubTracking() {
             if (typeof jQuery === 'undefined') {
                 setTimeout(initTrackingHubTracking, 100);
@@ -139,7 +167,6 @@ window.addEventListener("load", function() {
             jQuery(document).on('submit_success', function(event, response) {
                 var form = event.target;
                 
-                // Gatekeeper
                 if (form && form.querySelector('[id="' + config.userDataFields.email + '"]')) {
                     
                     function getSafeValue(fieldId) {
@@ -148,7 +175,6 @@ window.addEventListener("load", function() {
                         return field ? field.value : "";
                     }
 
-                    // Datenpaket schnüren (Direktzugriff ohne Umweg über HTML-Felder)
                     const payload = {
                         'event': config.eventName, 
                         'user_data': {
@@ -163,37 +189,39 @@ window.addEventListener("load", function() {
                             }
                         },
                         'tracking_data': {
+                            'timestamp': Math.floor(Date.now() / 1000),
                             'lead_id': currentLeadId,
                             'user_agent': navigator.userAgent,
                             'page_url': window.location.href.split(/[?#]/)[0],
                             'fbc': getCookie('_fbc') || fallbackFbc || "",
                             'fbp': getCookie('_fbp') || "",
-                            'gclid': localStorage.getItem('thub_gclid') || "",
-                            'wbraid': localStorage.getItem('thub_wbraid') || "",
-                            'gbraid': localStorage.getItem('thub_gbraid') || ""
+                            'gclid': getStorageWithExpiry('thub_gclid'),
+                            'wbraid': getStorageWithExpiry('thub_wbraid'),
+                            'gbraid': getStorageWithExpiry('thub_gbraid')
                         }
                     };
 
-                    // --- DIE ADBLOCKER WEICHE + TESTPARAMETER SIMULATION ---
                     const isTestMode = (urlParams.get('fetch_check') === 'true');
                     const isGtmActive = (typeof window.google_tag_manager !== 'undefined');
 
                     if (isGtmActive && !isTestMode) {
-                        // Szenario A: GTM geladen und kein Testmodus aktiv -> dataLayer befüllen
                         window.dataLayer = window.dataLayer || [];
                         window.dataLayer.push(payload);
                     } else {
-                        // Szenario B: GTM blockiert ODER fetch_check=true -> Direkter HTTP-POST per Fetch an den sGTM
-                        fetch(config.serverEndpoint, {
-                            method: 'POST',
-                            keepalive: true,
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify(payload)
-                        }).catch(function(err) {
-                            console.error('TrackingHub Fetch-Fallback Error:', err);
-                        });
+                        if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
+                            fetch(config.serverEndpoint, {
+                                method: 'POST',
+                                keepalive: true,
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            }).catch(function(err) {
+                                console.error('TrackingHub Fetch-Fallback Error:', err);
+                            });
+                        } else {
+                            console.warn("TrackingHub: Fetch-Fallback wurde übersprungen, da 'serverEndpoint' nicht konfiguriert ist.");
+                        }
                     }
                 }
             });
