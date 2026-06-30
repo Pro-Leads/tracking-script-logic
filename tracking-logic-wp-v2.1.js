@@ -1,4 +1,4 @@
-// --- V3.9.5_EXTERNAL_THUB_HYBRID_MASTER (Inklusive Live-Debugger) ---
+// --- V3.9.6_EXTERNAL_THUB_HYBRID_MASTER (Inklusive Fetch-Check Warnung & Live-Debugger) ---
 window.addEventListener("load", function() {
     
     const urlParams = new URLSearchParams(window.location.search);
@@ -234,25 +234,21 @@ window.addEventListener("load", function() {
         function initLiveDebugger() {
             if (urlParams.get('thub-check-value') !== 'true') return;
 
-            // Container-Styling ganz unten an die Seite hängen
             const debugContainer = document.createElement('div');
             debugContainer.id = 'thub-live-debugger';
             debugContainer.style.cssText = 'margin-top: 50px; background-color: #1e1e1e; color: #d4d4d4; padding: 30px; font-family: monospace; font-size: 15px; border-top: 4px solid #ff9800; word-break: break-all;';
             document.body.appendChild(debugContainer);
 
-            // Hilfsfunktion: Prüft Live-Werte im Formular
             function getLiveFieldValue(fieldId) {
                 if (!fieldId) return "nicht gesetzt";
                 const field = document.querySelector('[id="' + fieldId + '"]');
                 return (field && field.value.trim() !== "") ? field.value : "nicht gesetzt";
             }
 
-            // Hilfsfunktion: Fallback für leere Werte
             function formatVal(val) {
                 return (val && val !== "") ? val : "<span style='color: #ff5252;'>nicht gesetzt</span>";
             }
 
-            // Rendert die Tabelle neu
             function renderDebugTable() {
                 const tableHTML = `
                     <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub Live-Debugger</h2>
@@ -265,27 +261,18 @@ window.addEventListener("load", function() {
                             </tr>
                         </thead>
                         <tbody>
-                            <!-- ID -->
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #4CAF50;"><b>ID</b></td><td style="padding: 8px;">Lead ID</td><td style="padding: 8px; color: #fff;">${formatVal(currentLeadId)}</td></tr>
-                            
-                            <!-- Klick-IDs -->
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gclid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_gclid'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">wbraid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_wbraid'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gbraid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_gbraid'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">fbclid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_fbclid'))}</td></tr>
-                            
-                            <!-- UTMs -->
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_source</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_source'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_medium</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_medium'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_campaign</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_campaign'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_content</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_content'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_term</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_term'))}</td></tr>
-                            
-                            <!-- Cookies -->
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #FFC107;"><b>Cookies</b></td><td style="padding: 8px;">_fbc</td><td style="padding: 8px; color: #fff;">${formatVal(getCookie('_fbc'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #FFC107;"><b>Cookies</b></td><td style="padding: 8px;">_fbp</td><td style="padding: 8px; color: #fff;">${formatVal(getCookie('_fbp'))}</td></tr>
-                            
-                            <!-- Live Formular-Werte -->
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #00BCD4;"><b>Formular (Live)</b></td><td style="padding: 8px;">E-Mail</td><td style="padding: 8px; color: #fff;">${formatVal(getLiveFieldValue(config.userDataFields.email))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #00BCD4;"><b>Formular (Live)</b></td><td style="padding: 8px;">Telefon</td><td style="padding: 8px; color: #fff;">${formatVal(getLiveFieldValue(config.userDataFields.phone))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #00BCD4;"><b>Formular (Live)</b></td><td style="padding: 8px;">Vorname</td><td style="padding: 8px; color: #fff;">${formatVal(getLiveFieldValue(config.userDataFields.firstName))}</td></tr>
@@ -299,17 +286,26 @@ window.addEventListener("load", function() {
                 debugContainer.innerHTML = tableHTML;
             }
 
-            // Einmalig initial rendern
             renderDebugTable();
-
-            // Event Listener hinzufügen, um auf Eingaben in Echtzeit zu reagieren
             document.addEventListener('input', renderDebugTable);
             document.addEventListener('change', renderDebugTable);
-            // Zusätzlicher Fallback für Auto-Fill-Ereignisse, die manchmal keine Input-Events feuern
             document.addEventListener('click', () => setTimeout(renderDebugTable, 100));
         }
 
         initLiveDebugger();
+
+        // --- VISUELLER FETCH-CHECK WARNHINWEIS ---
+        function initFetchCheckWarning() {
+            if (urlParams.get('fetch_check') !== 'true') return;
+
+            const warnContainer = document.createElement('div');
+            warnContainer.id = 'thub-fetch-check-warning';
+            warnContainer.style.cssText = 'background-color: #ff5252; color: #ffffff; padding: 15px; font-family: sans-serif; font-size: 14px; font-weight: bold; text-align: center; border-top: 2px solid #b71c1c; margin-top: 20px; word-break: break-word;';
+            warnContainer.innerHTML = '⚠️ ACHTUNG: Fetch-Testmodus aktiv (fetch_check=true). Das reguläre GTM-Tracking ist blockiert und die Daten werden als direktes Fallback an den Server gesendet.';
+            document.body.appendChild(warnContainer);
+        }
+
+        initFetchCheckWarning();
 
     }, 800);
 });
