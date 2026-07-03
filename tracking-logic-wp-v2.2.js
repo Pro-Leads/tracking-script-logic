@@ -1,4 +1,4 @@
-// --- V3.9.6_EXTERNAL_THUB_HYBRID_MASTER (Inklusive Fetch-Check Warnung & Live-Debugger) ---
+// --- V3.9.7_EXTERNAL_THUB_HYBRID_MASTER (Inklusive Fetch-Credentials für sGTM-Vorschau) ---
 window.addEventListener("load", function() {
     
     const urlParams = new URLSearchParams(window.location.search);
@@ -213,6 +213,7 @@ window.addEventListener("load", function() {
                             fetch(config.serverEndpoint, {
                                 method: 'POST',
                                 keepalive: true,
+                                credentials: 'include', // <--- Hinzugefügt für sGTM Vorschau
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
