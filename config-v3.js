@@ -1,4 +1,4 @@
-script>
+<script>
     // TrackingHub Konfiguration global speichern
     window.TrackingHubLeadConfig = {
         cookieName: "thub_lead_id", 
