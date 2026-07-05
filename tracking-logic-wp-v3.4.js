@@ -1,4 +1,4 @@
-// --- V5.0.0_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.0.1_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 window.addEventListener("load", function() {
     
     const urlParams = new URLSearchParams(window.location.search);
