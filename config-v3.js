@@ -1,8 +1,6 @@
 <script>
     // TrackingHub Konfiguration global speichern
     window.TrackingHubLeadConfig = {
-        cookieName: "thub_lead_id", 
-        eventName: "sst_form_submitted", 
         serverEndpoint: "https://sst.vabusinessacademy.de/lead-data",
         cLead: "/capi-facebook, /kontakt", 
         cSchedule: "/termin-buchen",
