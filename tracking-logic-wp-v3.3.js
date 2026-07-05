@@ -1,4 +1,3 @@
-<script>
 // --- V5.0.0_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 window.addEventListener("load", function() {
     
@@ -369,4 +368,3 @@ window.addEventListener("load", function() {
 
     }, 800);
 });
-</script>
