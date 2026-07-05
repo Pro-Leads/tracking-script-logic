@@ -1,4 +1,4 @@
-// --- V3.9.7_EXTERNAL_THUB_HYBRID_MASTER (Inklusive Fetch-Credentials für sGTM-Vorschau) ---
+// --- V4.0.0_EXTERNAL_THUB_HYBRID_FLAT_MASTER (Inklusive Fetch-Credentials für sGTM-Vorschau) ---
 window.addEventListener("load", function() {
     
     const urlParams = new URLSearchParams(window.location.search);
@@ -176,30 +176,25 @@ window.addEventListener("load", function() {
                         return field ? field.value : "";
                     }
 
+                    // --- NEUER FLACHER PAYLOAD ---
                     const payload = {
-                        'event': config.eventName, 
-                        'user_data': {
-                            'email_address': getSafeValue(config.userDataFields.email),
-                            'phone_number': getSafeValue(config.userDataFields.phone),
-                            'first_name': getSafeValue(config.userDataFields.firstName),
-                            'last_name': getSafeValue(config.userDataFields.lastName),
-                            'address': {
-                                'city': getSafeValue(config.userDataFields.city),
-                                'postal_code': getSafeValue(config.userDataFields.postalCode),
-                                'country': getSafeValue(config.userDataFields.country)
-                            }
-                        },
-                        'tracking_data': {
-                            'timestamp': Math.floor(Date.now() / 1000),
-                            'lead_id': currentLeadId,
-                            'user_agent': navigator.userAgent,
-                            'page_url': window.location.href.split(/[?#]/)[0],
-                            'fbc': getCookie('_fbc') || fallbackFbc || "",
-                            'fbp': getCookie('_fbp') || "",
-                            'gclid': getStorageWithExpiry('thub_gclid'),
-                            'wbraid': getStorageWithExpiry('thub_wbraid'),
-                            'gbraid': getStorageWithExpiry('thub_gbraid')
-                        }
+                        'event': config.eventName,
+                        'th_user_data_email_address': getSafeValue(config.userDataFields.email),
+                        'th_user_data_phone_number': getSafeValue(config.userDataFields.phone),
+                        'th_user_data_first_name': getSafeValue(config.userDataFields.firstName),
+                        'th_user_data_last_name': getSafeValue(config.userDataFields.lastName),
+                        'th_user_data_city': getSafeValue(config.userDataFields.city),
+                        'th_user_data_postal_code': getSafeValue(config.userDataFields.postalCode),
+                        'th_user_data_country': getSafeValue(config.userDataFields.country),
+                        'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                        'th_tracking_data_lead_id': currentLeadId,
+                        'th_tracking_data_user_agent': navigator.userAgent,
+                        'th_tracking_data_page_url': window.location.href.split(/[?#]/)[0],
+                        'th_tracking_data_fbc': getCookie('_fbc') || fallbackFbc || "",
+                        'th_tracking_data_fbp': getCookie('_fbp') || "",
+                        'th_tracking_data_gclid': getStorageWithExpiry('thub_gclid'),
+                        'th_tracking_data_wbraid': getStorageWithExpiry('thub_wbraid'),
+                        'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
                     };
 
                     const isTestMode = (urlParams.get('fetch_check') === 'true');
@@ -213,7 +208,7 @@ window.addEventListener("load", function() {
                             fetch(config.serverEndpoint, {
                                 method: 'POST',
                                 keepalive: true,
-                                credentials: 'include', // <--- Hinzugefügt für sGTM Vorschau
+                                credentials: 'include', 
                                 headers: {
                                     'Content-Type': 'application/json'
                                 },
