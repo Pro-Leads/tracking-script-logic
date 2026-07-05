@@ -134,23 +134,29 @@ window.addEventListener("load", function() {
             return paths.some(p => p !== "" && path.includes(p));
         }
 
-        const isTestMode = (urlParams.get('fetch_check') === 'true');
-        const isGtmActive = (typeof window.google_tag_manager !== 'undefined');
+        // --- NEU: Dynamische Routing-Funktion (Löst das Timing-Problem) ---
+        function pushOrFetch(payload) {
+            const isTestMode = (urlParams.get('fetch_check') === 'true');
+            // Prüft im Moment des Aufrufs, ob der GTM oder der DataLayer existiert
+            const isGtmActive = (typeof window.google_tag_manager !== 'undefined' || typeof window.dataLayer !== 'undefined');
 
-        // Hilfsfunktion: Zentraler Fetch-Request (verhindert doppelten Code für Stufe 1 & 2)
-        function sendFallbackFetch(payload) {
-            if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
-                fetch(config.serverEndpoint, {
-                    method: 'POST',
-                    keepalive: true,
-                    credentials: 'include', 
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                }).catch(function(err) {
-                    console.error('TrackingHub Fetch-Fallback Error:', err);
-                });
+            if (isGtmActive && !isTestMode) {
+                window.dataLayer = window.dataLayer || [];
+                window.dataLayer.push(payload);
             } else {
-                console.warn("TrackingHub: Fetch-Fallback übersprungen (kein serverEndpoint konfiguriert).");
+                if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
+                    fetch(config.serverEndpoint, {
+                        method: 'POST',
+                        keepalive: true,
+                        credentials: 'include', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    }).catch(function(err) {
+                        console.error('TrackingHub Fetch-Fallback Error:', err);
+                    });
+                } else {
+                    console.warn("TrackingHub: Fetch-Fallback übersprungen (kein serverEndpoint konfiguriert).");
+                }
             }
         }
 
@@ -177,12 +183,8 @@ window.addEventListener("load", function() {
                 'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
             };
 
-            if (isGtmActive && !isTestMode) {
-                window.dataLayer = window.dataLayer || [];
-                window.dataLayer.push(basePayload);
-            } else {
-                sendFallbackFetch(basePayload);
-            }
+            // Nutzen der neuen dynamischen Funktion
+            pushOrFetch(basePayload);
         }
 
         // ---------------------------------------------------------
@@ -279,12 +281,8 @@ window.addEventListener("load", function() {
                         'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
                     };
 
-                    if (isGtmActive && !isTestMode) {
-                        window.dataLayer = window.dataLayer || [];
-                        window.dataLayer.push(payload);
-                    } else {
-                        sendFallbackFetch(payload);
-                    }
+                    // Nutzen der neuen dynamischen Funktion anstelle der alten if/else Logik
+                    pushOrFetch(payload);
                 }
             });
         }
