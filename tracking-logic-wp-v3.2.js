@@ -162,7 +162,7 @@ window.addEventListener("load", function() {
 
         if (!excludePageView) {
             const basePayload = {
-                'event': 'th_base_ready', // Trigger für deinen wGTM (z.B. für PageView)
+                'event': 'page_view', // Trigger für deinen wGTM (z.B. für PageView)
                 'event_name': 'page_view', // CAPI Pflichtfeld (nur wichtig für Fallback)
                 'action_source': 'website',
                 'event_id': generateUUID(), // Pflichtfeld für eventuelle Deduplizierung
