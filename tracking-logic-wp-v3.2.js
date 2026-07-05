@@ -9,6 +9,7 @@ window.addEventListener("load", function() {
         return val ? val.replace(/\+/g, ' ') : null;
     }
 
+    // --- STREAMING_CHUNK:Configuring timers and storage limits... ---
     // --- Timer in Minuten (30 Minuten empfohlen für eine Session) ---
     const storageExpiryMinutes = 30; 
 
@@ -48,6 +49,7 @@ window.addEventListener("load", function() {
 
     setTimeout(function() {
         
+        // --- STREAMING_CHUNK:Initializing global configuration and helper functions... ---
         const config = window.TrackingHubLeadConfig || {};
 
         if (!config.trackingfields) {
@@ -104,9 +106,11 @@ window.addEventListener("load", function() {
             }
         }
 
+        // --- STREAMING_CHUNK:Processing Lead ID and Hybrid Storage logic... ---
+        const thubCookieName = 'thub_lead_id';
         const thubOverrideValue = getCleanParam('thub') || getCleanParam('nli') || getCleanParam('nil');
-        const cookieLeadId = getCookie(config.cookieName) || getCookie('nao_lead_id');
-        const lsLeadId = localStorage.getItem(config.cookieName);
+        const cookieLeadId = getCookie(thubCookieName) || getCookie('nao_lead_id');
+        const lsLeadId = localStorage.getItem(thubCookieName);
         
         let currentLeadId = "";
 
@@ -120,9 +124,10 @@ window.addEventListener("load", function() {
             currentLeadId = generateUUID();
         }
 
-        setCookie(config.cookieName, currentLeadId, 90); 
-        localStorage.setItem(config.cookieName, currentLeadId); 
+        setCookie(thubCookieName, currentLeadId, 90); 
+        localStorage.setItem(thubCookieName, currentLeadId); 
 
+        // Hilfsfunktion: Prüft, ob der aktuelle Pfad in der kommagetrennten Config-Liste enthalten ist
         function isPathMatching(configString, path) {
             if (!configString) return false;
             const paths = configString.split(',').map(p => p.trim());
@@ -132,6 +137,7 @@ window.addEventListener("load", function() {
         const isTestMode = (urlParams.get('fetch_check') === 'true');
         const isGtmActive = (typeof window.google_tag_manager !== 'undefined');
 
+        // Hilfsfunktion: Zentraler Fetch-Request (verhindert doppelten Code für Stufe 1 & 2)
         function sendFallbackFetch(payload) {
             if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
                 fetch(config.serverEndpoint, {
@@ -148,6 +154,7 @@ window.addEventListener("load", function() {
             }
         }
 
+        // --- STREAMING_CHUNK:Executing Phase 1 Page View and populating DataLayer... ---
         // ---------------------------------------------------------
         // STUFE 1: PAGE VIEW LOGIK (Base Payload)
         // ---------------------------------------------------------
@@ -210,6 +217,7 @@ window.addEventListener("load", function() {
             });
         });
 
+        // --- STREAMING_CHUNK:Defining Phase 2 dynamic routing and submit logic... ---
         // ---------------------------------------------------------
         // STUFE 2: SUBMIT LOGIK (Dynamic Routing Payload)
         // ---------------------------------------------------------
@@ -283,6 +291,7 @@ window.addEventListener("load", function() {
 
         initTrackingHubTracking();
 
+        // --- STREAMING_CHUNK:Rendering visual debugger elements... ---
         // --- VISUELLER LIVE-DEBUGGER ---
         function initLiveDebugger() {
             if (urlParams.get('thub-check-value') !== 'true') return;
