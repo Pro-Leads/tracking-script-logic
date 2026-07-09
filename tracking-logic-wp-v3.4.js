@@ -258,10 +258,10 @@ window.addEventListener("load", function() {
 
                     // Flacher Payload mit dynamischem Event und CAPI Pflichtfeldern
                     const payload = {
-                        'event': matchedEventName, // Trigger für wGTM
-                        'event_name': matchedEventName, // CAPI Event Name für Server
+                        'event': matchedEventName,
+                        'event_name': matchedEventName,
                         'action_source': 'website',
-                        'event_id': generateUUID(), // Deduplizierungs-ID für dieses Submit
+                        'event_id': generateUUID(),
                         'th_user_data_email_address': getSafeValue(config.userDataFields.email),
                         'th_user_data_phone_number': getSafeValue(config.userDataFields.phone),
                         'th_user_data_first_name': getSafeValue(config.userDataFields.firstName),
@@ -270,6 +270,8 @@ window.addEventListener("load", function() {
                         'th_user_data_postal_code': getSafeValue(config.userDataFields.postalCode),
                         'th_user_data_country': getSafeValue(config.userDataFields.country),
                         'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                        'th_tracking_data_utm_source: getSafeValue(config.trackingfields.utm_source),
+                        'th_tracking_data_utm_term: getSafeValue(config.trackingfields.utm_term),
                         'th_tracking_data_lead_id': currentLeadId,
                         'th_tracking_data_user_agent': navigator.userAgent,
                         'th_tracking_data_page_url': window.location.href.split(/[?#]/)[0],
