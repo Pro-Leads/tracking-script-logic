@@ -1,6 +1,10 @@
-// --- V5.0.1_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
-window.addEventListener("load", function() {
-    
+// --- V5.0.3_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+function bootTrackingHub() {
+    if (window.thub_initialized) return;
+    window.thub_initialized = true;
+
+    console.log("TrackingHub Debug: Skript gebootet (V5.0.3).");
+
     const urlParams = new URLSearchParams(window.location.search);
     
     function getCleanParam(paramName) {
@@ -49,10 +53,11 @@ window.addEventListener("load", function() {
     setTimeout(function() {
         
         // --- STREAMING_CHUNK:Initializing global configuration and helper functions... ---
+        console.log("TrackingHub Debug: Sammle Daten nach 800ms.");
         const config = window.TrackingHubLeadConfig || {};
 
         if (!config.trackingfields) {
-            console.error("Die Konfiguration 'window.TrackingHubLeadConfig' ist unvollständig.");
+            console.error("TrackingHub Debug: Abbruch! Konfiguration nicht gefunden oder unvollständig.", config);
             return;
         }
 
@@ -133,16 +138,20 @@ window.addEventListener("load", function() {
             return paths.some(p => p !== "" && path.includes(p));
         }
 
-        // --- NEU: Dynamische Routing-Funktion (Löst das Timing-Problem) ---
+        // --- NEU: Dynamische Routing-Funktion (Mit strengem GTM Check) ---
         function pushOrFetch(payload) {
             const isTestMode = (urlParams.get('fetch_check') === 'true');
-            // Prüft im Moment des Aufrufs, ob der GTM oder der DataLayer existiert
-            const isGtmActive = (typeof window.google_tag_manager !== 'undefined' || typeof window.dataLayer !== 'undefined');
+            // KORREKTUR: Nur 'google_tag_manager' beweist, dass der GTM wirklich da und unblockiert ist!
+            const isGtmActive = (typeof window.google_tag_manager !== 'undefined');
+
+            console.log(`TrackingHub Debug: Event '${payload.event}' bereit. GTM erkannt: ${isGtmActive}`);
 
             if (isGtmActive && !isTestMode) {
                 window.dataLayer = window.dataLayer || [];
                 window.dataLayer.push(payload);
+                console.log("TrackingHub Debug: Erfolgreich in DataLayer gepusht.");
             } else {
+                console.log("TrackingHub Debug: GTM nicht verfügbar. Sende Notfall-Fetch an Server.");
                 if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
                     fetch(config.serverEndpoint, {
                         method: 'POST',
@@ -167,10 +176,11 @@ window.addEventListener("load", function() {
 
         if (!excludePageView) {
             const basePayload = {
-                'event': 'page_view', // Trigger für deinen wGTM (z.B. für PageView)
-                'event_name': 'page_view', // CAPI Pflichtfeld (nur wichtig für Fallback)
+                'event': 'page_view', 
+                'event_name': 'page_view', 
+                'event_time': Math.floor(Date.now() / 1000), 
                 'action_source': 'website',
-                'event_id': generateUUID(), // Pflichtfeld für eventuelle Deduplizierung
+                'event_id': generateUUID(), 
                 'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
                 'th_tracking_data_lead_id': currentLeadId,
                 'th_tracking_data_user_agent': navigator.userAgent,
@@ -182,7 +192,6 @@ window.addEventListener("load", function() {
                 'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
             };
 
-            // Nutzen der neuen dynamischen Funktion
             pushOrFetch(basePayload);
         }
 
@@ -220,75 +229,113 @@ window.addEventListener("load", function() {
 
         // --- STREAMING_CHUNK:Defining Phase 2 dynamic routing and submit logic... ---
         // ---------------------------------------------------------
-        // STUFE 2: SUBMIT LOGIK (Dynamic Routing Payload)
+        // STUFE 2: SUBMIT LOGIK (Doppelter Boden für Mobile & Desktop)
         // ---------------------------------------------------------
-        function initTrackingHubTracking() {
-            if (typeof jQuery === 'undefined') {
-                setTimeout(initTrackingHubTracking, 100);
+        
+        // Zentrale Funktion: Baut den Payload und verschickt ihn
+        function handleFormSubmit(form) {
+            if (!form) return;
+
+            // Deduplizierung: Schützt vor doppeltem Senden, wenn beide Methoden anschlagen
+            if (form.dataset.thubSubmitted === 'true') {
+                console.log("TrackingHub Debug: Formular wurde bereits erfasst. Abbruch (Deduplizierung).");
                 return;
             }
 
-            jQuery(document).on('submit_success', function(event, response) {
-                var form = event.target;
+            let matchedEventName = null;
+
+            if (isPathMatching(config.cLead, currentPath)) {
+                matchedEventName = 'generate_lead';
+            } else if (isPathMatching(config.cSchedule, currentPath)) {
+                matchedEventName = 'schedule';
+            } else if (isPathMatching(config.cPurchase, currentPath)) {
+                matchedEventName = 'purchase';
+            }
+
+            if (!matchedEventName) {
+                console.log("TrackingHub Debug: Kein Event-Pfad für diese URL definiert. Submit wird ignoriert.");
+                return; 
+            }
+            
+            if (form.querySelector('[id="' + config.userDataFields.email + '"]')) {
+                function getSafeValue(fieldId) {
+                    if (!fieldId) return "";
+                    var field = form.querySelector('[id="' + fieldId + '"]');
+                    return field ? field.value : "";
+                }
+
+                const payload = {
+                    'event': matchedEventName, 
+                    'event_name': matchedEventName, 
+                    'event_time': Math.floor(Date.now() / 1000), 
+                    'action_source': 'website',
+                    'event_id': generateUUID(), 
+                    'th_user_data_email_address': getSafeValue(config.userDataFields.email),
+                    'th_user_data_phone_number': getSafeValue(config.userDataFields.phone),
+                    'th_user_data_first_name': getSafeValue(config.userDataFields.firstName),
+                    'th_user_data_last_name': getSafeValue(config.userDataFields.lastName),
+                    'th_user_data_city': getSafeValue(config.userDataFields.city),
+                    'th_user_data_postal_code': getSafeValue(config.userDataFields.postalCode),
+                    'th_user_data_country': getSafeValue(config.userDataFields.country),
+                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                    'th_tracking_data_utm_source': getSafeValue(config.trackingfields.utm_source),
+                    'th_tracking_data_utm_term': getSafeValue(config.trackingfields.utm_term),
+                    'th_tracking_data_lead_id': currentLeadId,
+                    'th_tracking_data_user_agent': navigator.userAgent,
+                    'th_tracking_data_page_url': window.location.href.split(/[?#]/)[0],
+                    'th_tracking_data_fbc': getCookie('_fbc') || fallbackFbc || "",
+                    'th_tracking_data_fbp': getCookie('_fbp') || "",
+                    'th_tracking_data_gclid': getStorageWithExpiry('thub_gclid'),
+                    'th_tracking_data_wbraid': getStorageWithExpiry('thub_wbraid'),
+                    'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
+                };
+
+                // Formular digital abstempeln
+                form.dataset.thubSubmitted = 'true';
                 
-                // Pfad überprüfen und Event-Namen dynamisch festlegen
-                let matchedEventName = null;
-
-                if (isPathMatching(config.cLead, currentPath)) {
-                    matchedEventName = 'generate_lead';
-                } else if (isPathMatching(config.cSchedule, currentPath)) {
-                    matchedEventName = 'schedule';
-                } else if (isPathMatching(config.cPurchase, currentPath)) {
-                    matchedEventName = 'purchase';
-                }
-
-                // Wenn kein Pfad zutrifft: Strikt abbrechen und nichts senden!
-                if (!matchedEventName) {
-                    console.log("TrackingHub: Kein Event-Pfad für diese URL definiert. Submit wird ignoriert.");
-                    return; 
-                }
-                
-                if (form && form.querySelector('[id="' + config.userDataFields.email + '"]')) {
-                    
-                    function getSafeValue(fieldId) {
-                        if (!fieldId) return "";
-                        var field = form.querySelector('[id="' + fieldId + '"]');
-                        return field ? field.value : "";
-                    }
-
-                    // Flacher Payload mit dynamischem Event und CAPI Pflichtfeldern
-                    const payload = {
-                        'event': matchedEventName,
-                        'event_name': matchedEventName,
-                        'action_source': 'website',
-                        'event_id': generateUUID(),
-                        'th_user_data_email_address': getSafeValue(config.userDataFields.email),
-                        'th_user_data_phone_number': getSafeValue(config.userDataFields.phone),
-                        'th_user_data_first_name': getSafeValue(config.userDataFields.firstName),
-                        'th_user_data_last_name': getSafeValue(config.userDataFields.lastName),
-                        'th_user_data_city': getSafeValue(config.userDataFields.city),
-                        'th_user_data_postal_code': getSafeValue(config.userDataFields.postalCode),
-                        'th_user_data_country': getSafeValue(config.userDataFields.country),
-                        'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                        'th_tracking_data_utm_source': getSafeValue(config.trackingfields.utm_source),
-                        'th_tracking_data_utm_term': getSafeValue(config.trackingfields.utm_term),
-                        'th_tracking_data_lead_id': currentLeadId,
-                        'th_tracking_data_user_agent': navigator.userAgent,
-                        'th_tracking_data_page_url': window.location.href.split(/[?#]/)[0],
-                        'th_tracking_data_fbc': getCookie('_fbc') || fallbackFbc || "",
-                        'th_tracking_data_fbp': getCookie('_fbp') || "",
-                        'th_tracking_data_gclid': getStorageWithExpiry('thub_gclid'),
-                        'th_tracking_data_wbraid': getStorageWithExpiry('thub_wbraid'),
-                        'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
-                    };
-
-                    // Nutzen der neuen dynamischen Funktion anstelle der alten if/else Logik
-                    pushOrFetch(payload);
-                }
-            });
+                // An GTM oder Server senden
+                pushOrFetch(payload);
+            }
         }
 
+        // METHODE A: Elementor / jQuery Fallback (Standard für Desktop)
+        function initTrackingHubTracking() {
+            if (typeof jQuery !== 'undefined') {
+                jQuery(document).on('submit_success', function(event, response) {
+                    console.log("TrackingHub Debug: Methode A (jQuery) hat Submit erkannt.");
+                    handleFormSubmit(event.target);
+                });
+            } else {
+                setTimeout(initTrackingHubTracking, 100);
+            }
+        }
         initTrackingHubTracking();
+
+        // METHODE B: Universeller HTML5 & iOS Listener (Der Retter für Mobile & Custom Builder)
+        document.addEventListener('submit', function(event) {
+            const form = event.target;
+            
+            // 1. Nativer Check: Sind alle HTML5 Pflichtfelder ausgefüllt?
+            if (form.checkValidity && !form.checkValidity()) {
+                console.log("TrackingHub Debug: Methode B (Nativ) - HTML5 Validierung fehlgeschlagen.");
+                return;
+            }
+
+            // 2. Kurz warten (200ms), damit Custom Pagebuilder ihre Fehlermeldungen (z.B. falsche Email) rendern können
+            setTimeout(() => {
+                // Wildcard-Suche nach Fehlerklassen (Elementor, Wix, Funnelcockpit, CF7)
+                const hasErrors = form.querySelector('[class*="error"], [class*="invalid"], [class*="danger"], .elementor-message-danger');
+                
+                if (hasErrors) {
+                    console.log("TrackingHub Debug: Methode B (Nativ) - Custom Formularfehler erkannt. Abbruch.");
+                    return;
+                }
+                
+                console.log("TrackingHub Debug: Methode B (Nativ) - Formular gültig erkannt.");
+                handleFormSubmit(form);
+            }, 200);
+        }, true); // "true" fängt das Event extrem früh ab (Capture Phase, überlebenswichtig für iPhone!)
+
 
         // --- STREAMING_CHUNK:Rendering visual debugger elements... ---
         // --- VISUELLER LIVE-DEBUGGER ---
@@ -369,4 +416,12 @@ window.addEventListener("load", function() {
         initFetchCheckWarning();
 
     }, 800);
-});
+}
+
+// Bulletproof Start-Logik: Startet sofort, falls Seite schon geladen ist
+if (document.readyState === "complete" || document.readyState === "interactive") {
+    bootTrackingHub();
+} else {
+    document.addEventListener("DOMContentLoaded", bootTrackingHub);
+    window.addEventListener("load", bootTrackingHub);
+}
