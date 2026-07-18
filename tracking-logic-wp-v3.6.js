@@ -1,9 +1,9 @@
-// --- V5.0.3_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.0.4_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.0.3).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.0.4).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -101,12 +101,22 @@ function bootTrackingHub() {
             }
         }
 
+        // --- NEU: Last-Click-Attribution Logik für Facebook (_fbc) ---
+        const currentUrlFbclid = getCleanParam('fbclid');
         const storedFbclid = getStorageWithExpiry('thub_fbclid');
         let fallbackFbc = null;
-        if (storedFbclid && storedFbclid !== "") {
+
+        if (currentUrlFbclid && currentUrlFbclid !== "") {
+            // Priorität 1: Harter Override bei frischem Klick
+            fallbackFbc = `fb.1.${Date.now()}.${currentUrlFbclid}`;
+            setCookie('_fbc', fallbackFbc, 90);
+            console.log("TrackingHub Debug: Neue fbclid erkannt. _fbc Cookie erzwungen/überschrieben.");
+        } else if (storedFbclid && storedFbclid !== "") {
+            // Priorität 2: Weicher Fallback aus dem Speicher
             fallbackFbc = `fb.1.${Date.now()}.${storedFbclid}`;
             if (!getCookie('_fbc')) {
                 setCookie('_fbc', fallbackFbc, 90);
+                console.log("TrackingHub Debug: Fehlendes _fbc Cookie aus Storage wiederhergestellt.");
             }
         }
 
@@ -138,10 +148,10 @@ function bootTrackingHub() {
             return paths.some(p => p !== "" && path.includes(p));
         }
 
-        // --- NEU: Dynamische Routing-Funktion (Mit strengem GTM Check) ---
+        // --- Dynamische Routing-Funktion (Mit strengem GTM Check) ---
         function pushOrFetch(payload) {
             const isTestMode = (urlParams.get('fetch_check') === 'true');
-            // KORREKTUR: Nur 'google_tag_manager' beweist, dass der GTM wirklich da und unblockiert ist!
+            // Nur 'google_tag_manager' beweist, dass der GTM wirklich da und unblockiert ist!
             const isGtmActive = (typeof window.google_tag_manager !== 'undefined');
 
             console.log(`TrackingHub Debug: Event '${payload.event}' bereit. GTM erkannt: ${isGtmActive}`);
