@@ -1,9 +1,9 @@
-// --- V5.0.4_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.0.5_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.0.4).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.0.5).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -288,8 +288,8 @@ function bootTrackingHub() {
                     'th_user_data_postal_code': getSafeValue(config.userDataFields.postalCode),
                     'th_user_data_country': getSafeValue(config.userDataFields.country),
                     'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                    'th_tracking_data_utm_source': getSafeValue(config.trackingfields.utm_source),
-                    'th_tracking_data_utm_term': getSafeValue(config.trackingfields.utm_term),
+                    'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
+                    'th_tracking_data_utm_term': getStorageWithExpiry('thub_utm_term'),
                     'th_tracking_data_lead_id': currentLeadId,
                     'th_tracking_data_user_agent': navigator.userAgent,
                     'th_tracking_data_page_url': window.location.href.split(/[?#]/)[0],
