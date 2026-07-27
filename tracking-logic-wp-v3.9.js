@@ -1,9 +1,9 @@
-// --- V5.0.6_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.0.7_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.0.6).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.0.7).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -84,10 +84,13 @@ function bootTrackingHub() {
             return null;
         }
 
+        // --- NEU: Dynamische Root-Domain Erkennung für ausfallsichere Cookies ---
         function setCookie(name, value, days) {
             const d = new Date(); 
             d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-            document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/;SameSite=Lax;Secure`;
+            // Ermittelt z.B. ".pro-leads.de" aus "go.pro-leads.de"
+            const rootDomain = '.' + window.location.hostname.split('.').slice(-2).join('.');
+            document.cookie = `${name}=${value};expires=${d.toUTCString()};domain=${rootDomain};path=/;SameSite=Lax;Secure`;
         }
 
         function safeSetValue(element, value) {
@@ -99,22 +102,32 @@ function bootTrackingHub() {
             }
         }
 
-        // --- NEU: Last-Click-Attribution Logik für Facebook (_fbc) ---
+        // --- NEU: Last-Click-Attribution Logik mit "Cookie-Staubsauger" ---
         const currentUrlFbclid = getCleanParam('fbclid');
         const storedFbclid = getStorageWithExpiry('thub_fbclid');
         let fallbackFbc = null;
 
         if (currentUrlFbclid && currentUrlFbclid !== "") {
-            // Priorität 1: Harter Override bei frischem Klick
+            
+            // 1. ABRISSBIRNE: Alle kaputten / doppelten _fbc Cookies auf allen Ebenen radikal löschen
+            const root = '.' + window.location.hostname.split('.').slice(-2).join('.');
+            const host = window.location.hostname;
+            const pastDate = 'Thu, 01 Jan 1970 00:00:00 UTC';
+            document.cookie = `_fbc=; expires=${pastDate}; path=/;`;
+            document.cookie = `_fbc=; expires=${pastDate}; domain=${root}; path=/;`;
+            document.cookie = `_fbc=; expires=${pastDate}; domain=${host}; path=/;`;
+
+            // 2. Priorität 1: Harter Override bei frischem Klick
             fallbackFbc = `fb.1.${Date.now()}.${currentUrlFbclid}`;
-            setCookie('_fbc', fallbackFbc, 90);
-            console.log("TrackingHub Debug: Neue fbclid erkannt. _fbc Cookie erzwungen/überschrieben.");
+            setCookie('_fbc', fallbackFbc, 90); // Schreibt nun sauber auf die Root-Domain
+            console.log("TrackingHub Debug: Neue fbclid erkannt. Cookie-Duplikate gelöscht und neues _fbc auf Root-Domain erzwungen.");
+            
         } else if (storedFbclid && storedFbclid !== "") {
             // Priorität 2: Weicher Fallback aus dem Speicher
             fallbackFbc = `fb.1.${Date.now()}.${storedFbclid}`;
             if (!getCookie('_fbc')) {
                 setCookie('_fbc', fallbackFbc, 90);
-                console.log("TrackingHub Debug: Fehlendes _fbc Cookie aus Storage wiederhergestellt.");
+                console.log("TrackingHub Debug: Fehlendes _fbc Cookie aus Storage wiederhergestellt (auf Root-Domain).");
             }
         }
 
@@ -364,7 +377,6 @@ function bootTrackingHub() {
 
             function renderDebugTable() {
                 
-                // --- NEU: Routen-Check für den Debugger ---
                 let matchedEventNameForDebug = "Kein Event definiert (Submit wird ignoriert)";
                 let eventColor = "#ff5252"; // Rot
 
