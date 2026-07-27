@@ -1,9 +1,10 @@
-// --- V5.0.5_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+<script>
+// --- V5.0.6_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.0.5).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.0.6).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -12,7 +13,6 @@ function bootTrackingHub() {
         return val ? val.replace(/\+/g, ' ') : null;
     }
 
-    // --- STREAMING_CHUNK:Configuring timers and storage limits... ---
     // --- Timer in Minuten (30 Minuten empfohlen für eine Session) ---
     const storageExpiryMinutes = 30; 
 
@@ -52,7 +52,6 @@ function bootTrackingHub() {
 
     setTimeout(function() {
         
-        // --- STREAMING_CHUNK:Initializing global configuration and helper functions... ---
         console.log("TrackingHub Debug: Sammle Daten nach 800ms.");
         const config = window.TrackingHubLeadConfig || {};
 
@@ -120,7 +119,7 @@ function bootTrackingHub() {
             }
         }
 
-        // --- STREAMING_CHUNK:Processing Lead ID and Hybrid Storage logic... ---
+        // --- Processing Lead ID and Hybrid Storage logic... ---
         const thubCookieName = 'thub_lead_id';
         const thubOverrideValue = getCleanParam('thub') || getCleanParam('nli') || getCleanParam('nil');
         const cookieLeadId = getCookie(thubCookieName) || getCookie('nao_lead_id');
@@ -178,7 +177,6 @@ function bootTrackingHub() {
             }
         }
 
-        // --- STREAMING_CHUNK:Executing Phase 1 Page View and populating DataLayer... ---
         // ---------------------------------------------------------
         // STUFE 1: PAGE VIEW LOGIK (Base Payload)
         // ---------------------------------------------------------
@@ -237,7 +235,6 @@ function bootTrackingHub() {
             });
         });
 
-        // --- STREAMING_CHUNK:Defining Phase 2 dynamic routing and submit logic... ---
         // ---------------------------------------------------------
         // STUFE 2: SUBMIT LOGIK (Doppelter Boden für Mobile & Desktop)
         // ---------------------------------------------------------
@@ -344,10 +341,9 @@ function bootTrackingHub() {
                 console.log("TrackingHub Debug: Methode B (Nativ) - Formular gültig erkannt.");
                 handleFormSubmit(form);
             }, 200);
-        }, true); // "true" fängt das Event extrem früh ab (Capture Phase, überlebenswichtig für iPhone!)
+        }, true);
 
 
-        // --- STREAMING_CHUNK:Rendering visual debugger elements... ---
         // --- VISUELLER LIVE-DEBUGGER ---
         function initLiveDebugger() {
             if (urlParams.get('thub-check-value') !== 'true') return;
@@ -368,6 +364,22 @@ function bootTrackingHub() {
             }
 
             function renderDebugTable() {
+                
+                // --- NEU: Routen-Check für den Debugger ---
+                let matchedEventNameForDebug = "Kein Event definiert (Submit wird ignoriert)";
+                let eventColor = "#ff5252"; // Rot
+
+                if (isPathMatching(config.cLead, currentPath)) {
+                    matchedEventNameForDebug = "generate_lead";
+                    eventColor = "#4CAF50"; // Grün
+                } else if (isPathMatching(config.cSchedule, currentPath)) {
+                    matchedEventNameForDebug = "schedule";
+                    eventColor = "#4CAF50"; 
+                } else if (isPathMatching(config.cPurchase, currentPath)) {
+                    matchedEventNameForDebug = "purchase";
+                    eventColor = "#4CAF50"; 
+                }
+
                 const tableHTML = `
                     <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub Live-Debugger</h2>
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
@@ -379,6 +391,7 @@ function bootTrackingHub() {
                             </tr>
                         </thead>
                         <tbody>
+                            <tr style="border-bottom: 2px solid #ff9800; background-color: #2a2a2a;"><td style="padding: 12px; color: #9C27B0;"><b>Routing</b></td><td style="padding: 12px; font-weight: bold;">Erkanntes Event</td><td style="padding: 12px; color: ${eventColor}; font-weight: bold; font-size: 16px;">${matchedEventNameForDebug}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #4CAF50;"><b>ID</b></td><td style="padding: 8px;">Lead ID</td><td style="padding: 8px; color: #fff;">${formatVal(currentLeadId)}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gclid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_gclid'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">wbraid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_wbraid'))}</td></tr>
@@ -435,3 +448,4 @@ if (document.readyState === "complete" || document.readyState === "interactive")
     document.addEventListener("DOMContentLoaded", bootTrackingHub);
     window.addEventListener("load", bootTrackingHub);
 }
+</script>
