@@ -1,9 +1,9 @@
-// --- V5.0.7_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.0.9_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.0.7).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.0.9).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -84,7 +84,7 @@ function bootTrackingHub() {
             return null;
         }
 
-        // --- NEU: Dynamische Root-Domain Erkennung für ausfallsichere Cookies ---
+        // --- Dynamische Root-Domain Erkennung für ausfallsichere Cookies ---
         function setCookie(name, value, days) {
             const d = new Date(); 
             d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -102,7 +102,7 @@ function bootTrackingHub() {
             }
         }
 
-        // --- NEU: Last-Click-Attribution Logik mit "Cookie-Staubsauger" ---
+        // --- Last-Click-Attribution Logik mit "Cookie-Staubsauger" ---
         const currentUrlFbclid = getCleanParam('fbclid');
         const storedFbclid = getStorageWithExpiry('thub_fbclid');
         let fallbackFbc = null;
@@ -374,6 +374,17 @@ function bootTrackingHub() {
             function formatVal(val) {
                 return (val && val !== "") ? val : "<span style='color: #ff5252;'>nicht gesetzt</span>";
             }
+            
+            // NEU: Kombinierte Formatierung für URL- und Storage-Werte
+            function formatDualVal(paramName) {
+                const urlVal = getCleanParam(paramName);
+                const storageVal = getStorageWithExpiry('thub_' + paramName);
+                
+                const urlStr = (urlVal && urlVal.trim() !== "") ? urlVal : "<span style='color: #ff5252;'>kein Parameter</span>";
+                const storageStr = (storageVal && storageVal !== "") ? storageVal : "<span style='color: #ff5252;'>nicht gesetzt</span>";
+                
+                return `${urlStr} / ${storageStr}`;
+            }
 
             function renderDebugTable() {
                 
@@ -404,15 +415,15 @@ function bootTrackingHub() {
                         <tbody>
                             <tr style="border-bottom: 2px solid #ff9800; background-color: #2a2a2a;"><td style="padding: 12px; color: #9C27B0;"><b>Routing</b></td><td style="padding: 12px; font-weight: bold;">Erkanntes Event</td><td style="padding: 12px; color: ${eventColor}; font-weight: bold; font-size: 16px;">${matchedEventNameForDebug}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #4CAF50;"><b>ID</b></td><td style="padding: 8px;">Lead ID</td><td style="padding: 8px; color: #fff;">${formatVal(currentLeadId)}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gclid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_gclid'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">wbraid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_wbraid'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gbraid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_gbraid'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">fbclid</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_fbclid'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_source</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_source'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_medium</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_medium'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_campaign</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_campaign'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_content</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_content'))}</td></tr>
-                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_term</td><td style="padding: 8px; color: #fff;">${formatVal(getStorageWithExpiry('thub_utm_term'))}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gclid / gclid (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('gclid')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">wbraid / wbraid (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('wbraid')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gbraid / gbraid (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('gbraid')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">fbclid / fbclid (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('fbclid')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_source / utm_source (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('utm_source')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_medium / utm_medium (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('utm_medium')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_campaign / utm_campaign (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('utm_campaign')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_content / utm_content (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('utm_content')}</td></tr>
+                            <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>UTM-Parameter</b></td><td style="padding: 8px;">utm_term / utm_term (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('utm_term')}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #FFC107;"><b>Cookies</b></td><td style="padding: 8px;">_fbc</td><td style="padding: 8px; color: #fff;">${formatVal(getCookie('_fbc'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #FFC107;"><b>Cookies</b></td><td style="padding: 8px;">_fbp</td><td style="padding: 8px; color: #fff;">${formatVal(getCookie('_fbp'))}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #00BCD4;"><b>Formular (Live)</b></td><td style="padding: 8px;">E-Mail</td><td style="padding: 8px; color: #fff;">${formatVal(getLiveFieldValue(config.userDataFields.email))}</td></tr>
