@@ -1,9 +1,9 @@
-// --- V5.0.9_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.1.0_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.0.9).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.1.0).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -137,16 +137,25 @@ function bootTrackingHub() {
         const cookieLeadId = getCookie(thubCookieName) || getCookie('nao_lead_id');
         const lsLeadId = localStorage.getItem(thubCookieName);
         
+        // --- NEU: Format-Wächter für UUID (RegEx) ---
+        function isValidUUID(id) {
+            if (!id) return false;
+            // Prüft auf exakt 36 Zeichen und korrekte Bindestrich-Positionen
+            return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        }
+
         let currentLeadId = "";
 
-        if (thubOverrideValue) {
+        // Strenge Prüfung durch den Wächter
+        if (isValidUUID(thubOverrideValue)) {
             currentLeadId = thubOverrideValue;
-        } else if (cookieLeadId) {
+        } else if (isValidUUID(cookieLeadId)) {
             currentLeadId = cookieLeadId;
-        } else if (lsLeadId) {
+        } else if (isValidUUID(lsLeadId)) {
             currentLeadId = lsLeadId;
         } else {
             currentLeadId = generateUUID();
+            console.log("TrackingHub Debug: Keine gültige formatierte Lead-ID gefunden (oder Platzhalter erkannt). Neue ID generiert.");
         }
 
         setCookie(thubCookieName, currentLeadId, 90); 
@@ -375,7 +384,7 @@ function bootTrackingHub() {
                 return (val && val !== "") ? val : "<span style='color: #ff5252;'>nicht gesetzt</span>";
             }
             
-            // NEU: Kombinierte Formatierung für URL- und Storage-Werte
+            // Kombinierte Formatierung für URL- und Storage-Werte
             function formatDualVal(paramName) {
                 const urlVal = getCleanParam(paramName);
                 const storageVal = getStorageWithExpiry('thub_' + paramName);
