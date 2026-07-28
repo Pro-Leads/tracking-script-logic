@@ -51,7 +51,7 @@ function bootTrackingHub() {
 
     setTimeout(function() {
         
-        console.log("TrackingHub Debug: Sammle Daten nach 800ms.");
+        console.log("TrackingHub Debug: Sammle Daten nach 1500ms.");
         const config = window.TrackingHubLeadConfig || {};
 
         if (!config.trackingfields) {
@@ -460,7 +460,7 @@ function bootTrackingHub() {
 
         initFetchCheckWarning();
 
-    }, 800);
+    }, 1500);
 }
 
 // Bulletproof Start-Logik: Startet sofort, falls Seite schon geladen ist
