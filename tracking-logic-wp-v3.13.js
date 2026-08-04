@@ -1,9 +1,9 @@
-// --- V5.1.0_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.2.1_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.1.0).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.2.1).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -40,14 +40,51 @@ function bootTrackingHub() {
         return itemStr; 
     }
 
+    // --- NEU: Session-Kurier für Nutzerdaten (max 25 Sekunden) ---
+    function saveTempUserData(dataObj) {
+        const item = { data: dataObj, expiry: Date.now() + 25000 };
+        sessionStorage.setItem('thub_temp_userdata', JSON.stringify(item));
+        console.log("TrackingHub Debug: Nutzerdaten in Session-Kurier gespeichert (25s Timer läuft).");
+    }
+
+    function getAndClearTempUserData() {
+        const str = sessionStorage.getItem('thub_temp_userdata');
+        if (!str) return {};
+        try {
+            const item = JSON.parse(str);
+            // Sofortige Löschung aus Sicherheitsgründen
+            sessionStorage.removeItem('thub_temp_userdata'); 
+            
+            if (Date.now() > item.expiry) {
+                console.log("TrackingHub Debug: Session-Kurier abgelaufen (> 25s). Daten verworfen.");
+                return {};
+            }
+            console.log("TrackingHub Debug: Frische Nutzerdaten aus Session-Kurier geladen und sicher gelöscht.");
+            return item.data || {};
+        } catch(e) {
+            return {};
+        }
+    }
+
     // 1. Klick-IDs und UTMs abfangen und speichern
-    const paramsToStore = ['gclid', 'wbraid', 'gbraid', 'fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+    const paramsToStore = ['gclid', 'wbraid', 'gbraid', 'fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content'];
     paramsToStore.forEach(param => {
         const val = getCleanParam(param);
         if (val !== null) {
             setStorageWithExpiry('thub_' + param, val, storageExpiryMinutes);
         }
     });
+
+    // --- NEU: Priorität für thub_ad_id (überschreibt utm_term) ---
+    const thubAdIdVal = getCleanParam('thub_ad_id');
+    const utmTermVal = getCleanParam('utm_term');
+    
+    if (thubAdIdVal !== null) {
+        setStorageWithExpiry('thub_utm_term', thubAdIdVal, storageExpiryMinutes);
+        console.log("TrackingHub Debug: thub_ad_id gefunden. Wird als utm_term priorisiert.");
+    } else if (utmTermVal !== null) {
+        setStorageWithExpiry('thub_utm_term', utmTermVal, storageExpiryMinutes);
+    }
 
     setTimeout(function() {
         
@@ -88,7 +125,6 @@ function bootTrackingHub() {
         function setCookie(name, value, days) {
             const d = new Date(); 
             d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-            // Ermittelt z.B. ".pro-leads.de" aus "go.pro-leads.de"
             const rootDomain = '.' + window.location.hostname.split('.').slice(-2).join('.');
             document.cookie = `${name}=${value};expires=${d.toUTCString()};domain=${rootDomain};path=/;SameSite=Lax;Secure`;
         }
@@ -108,8 +144,6 @@ function bootTrackingHub() {
         let fallbackFbc = null;
 
         if (currentUrlFbclid && currentUrlFbclid !== "") {
-            
-            // 1. ABRISSBIRNE: Alle kaputten / doppelten _fbc Cookies auf allen Ebenen radikal löschen
             const root = '.' + window.location.hostname.split('.').slice(-2).join('.');
             const host = window.location.hostname;
             const pastDate = 'Thu, 01 Jan 1970 00:00:00 UTC';
@@ -117,13 +151,11 @@ function bootTrackingHub() {
             document.cookie = `_fbc=; expires=${pastDate}; domain=${root}; path=/;`;
             document.cookie = `_fbc=; expires=${pastDate}; domain=${host}; path=/;`;
 
-            // 2. Priorität 1: Harter Override bei frischem Klick
             fallbackFbc = `fb.1.${Date.now()}.${currentUrlFbclid}`;
-            setCookie('_fbc', fallbackFbc, 90); // Schreibt nun sauber auf die Root-Domain
+            setCookie('_fbc', fallbackFbc, 90); 
             console.log("TrackingHub Debug: Neue fbclid erkannt. Cookie-Duplikate gelöscht und neues _fbc auf Root-Domain erzwungen.");
             
         } else if (storedFbclid && storedFbclid !== "") {
-            // Priorität 2: Weicher Fallback aus dem Speicher
             fallbackFbc = `fb.1.${Date.now()}.${storedFbclid}`;
             if (!getCookie('_fbc')) {
                 setCookie('_fbc', fallbackFbc, 90);
@@ -131,22 +163,19 @@ function bootTrackingHub() {
             }
         }
 
-        // --- Processing Lead ID and Hybrid Storage logic... ---
+        // --- Processing Lead ID and Hybrid Storage logic ---
         const thubCookieName = 'thub_lead_id';
         const thubOverrideValue = getCleanParam('thub') || getCleanParam('nli') || getCleanParam('nil');
         const cookieLeadId = getCookie(thubCookieName) || getCookie('nao_lead_id');
         const lsLeadId = localStorage.getItem(thubCookieName);
         
-        // --- NEU: Format-Wächter für UUID (RegEx) ---
         function isValidUUID(id) {
             if (!id) return false;
-            // Prüft auf exakt 36 Zeichen und korrekte Bindestrich-Positionen
             return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
         }
 
         let currentLeadId = "";
 
-        // Strenge Prüfung durch den Wächter
         if (isValidUUID(thubOverrideValue)) {
             currentLeadId = thubOverrideValue;
         } else if (isValidUUID(cookieLeadId)) {
@@ -155,24 +184,16 @@ function bootTrackingHub() {
             currentLeadId = lsLeadId;
         } else {
             currentLeadId = generateUUID();
-            console.log("TrackingHub Debug: Keine gültige formatierte Lead-ID gefunden (oder Platzhalter erkannt). Neue ID generiert.");
         }
 
         setCookie(thubCookieName, currentLeadId, 90); 
         localStorage.setItem(thubCookieName, currentLeadId); 
 
-        // Hilfsfunktion: Prüft, ob der aktuelle Pfad in der kommagetrennten Config-Liste enthalten ist
-        function isPathMatching(configString, path) {
-            if (!configString) return false;
-            const paths = configString.split(',').map(p => p.trim());
-            return paths.some(p => p !== "" && path.includes(p));
-        }
-
-        // --- Dynamische Routing-Funktion (Mit strengem GTM Check) ---
+        // --- Dynamische Routing-Funktion (Mit preflight-sicherem Fetch) ---
         function pushOrFetch(payload) {
             const isTestMode = (urlParams.get('fetch_check') === 'true');
-            // Nur 'google_tag_manager' beweist, dass der GTM wirklich da und unblockiert ist!
-            const isGtmActive = (typeof window.google_tag_manager !== 'undefined');
+            // Erweiterter Check gegen Adblocker-Phantome (prüft auf echte Inhalte)
+            const isGtmActive = (typeof window.google_tag_manager !== 'undefined' && Object.keys(window.google_tag_manager).length > 0);
 
             console.log(`TrackingHub Debug: Event '${payload.event}' bereit. GTM erkannt: ${isGtmActive}`);
 
@@ -183,11 +204,12 @@ function bootTrackingHub() {
             } else {
                 console.log("TrackingHub Debug: GTM nicht verfügbar. Sende Notfall-Fetch an Server.");
                 if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
+                    // 'text/plain' verhindert den langsamen CORS-Preflight
                     fetch(config.serverEndpoint, {
                         method: 'POST',
                         keepalive: true,
                         credentials: 'include', 
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'text/plain' },
                         body: JSON.stringify(payload)
                     }).catch(function(err) {
                         console.error('TrackingHub Fetch-Fallback Error:', err);
@@ -198,10 +220,58 @@ function bootTrackingHub() {
             }
         }
 
+        // --- NEU: Intelligenter Router für typ:/ und form:/ Präfixe ---
+        function evaluateCurrentPageEvents(path) {
+            const events = [
+                { name: 'generate_lead', configStr: config.cLead },
+                { name: 'schedule', configStr: config.cSchedule },
+                { name: 'purchase', configStr: config.cPurchase }
+            ];
+            
+            let matchedFormEvent = null;
+            let matchedTypEvent = null;
+
+            events.forEach(ev => {
+                if (!ev.configStr) return;
+                const routes = ev.configStr.split(',').map(p => p.trim());
+                routes.forEach(route => {
+                    if (route === "") return;
+                    let isTyp = route.startsWith('typ:/');
+                    let isForm = route.startsWith('form:/');
+                    
+                    let cleanPath = route;
+                    if (isTyp) cleanPath = route.substring(5);
+                    else if (isForm) cleanPath = route.substring(6);
+                    else { cleanPath = route; isForm = true; } // Abwärtskompatibilität ohne Präfix
+                    
+                    if (cleanPath !== "" && path.includes(cleanPath)) {
+                        if (isTyp) matchedTypEvent = ev.name;
+                        if (isForm) matchedFormEvent = ev.name;
+                    }
+                });
+            });
+
+            return { matchedFormEvent, matchedTypEvent };
+        }
+
+        const pageEvents = evaluateCurrentPageEvents(currentPath);
+
         // ---------------------------------------------------------
         // STUFE 1: PAGE VIEW LOGIK (Base Payload)
         // ---------------------------------------------------------
-        const excludePageView = isPathMatching(config.negativPV, currentPath);
+        function isPathMatchingSimple(configString, path) {
+            if (!configString) return false;
+            const paths = configString.split(',').map(p => p.trim());
+            return paths.some(p => {
+                if (p === "") return false;
+                let cleanP = p;
+                if (p.startsWith('typ:/')) cleanP = p.substring(5);
+                else if (p.startsWith('form:/')) cleanP = p.substring(6);
+                return path.includes(cleanP);
+            });
+        }
+
+        const excludePageView = isPathMatchingSimple(config.negativPV, currentPath);
 
         if (!excludePageView) {
             const basePayload = {
@@ -222,6 +292,52 @@ function bootTrackingHub() {
             };
 
             pushOrFetch(basePayload);
+        }
+
+        // ---------------------------------------------------------
+        // STUFE 1.5: AUTOMATISCHES DANKESEITEN-EVENT (typ:/)
+        // ---------------------------------------------------------
+        if (pageEvents.matchedTypEvent) {
+            const eventName = pageEvents.matchedTypEvent;
+            const hasFired = sessionStorage.getItem('thub_fired_' + eventName);
+            
+            if (!hasFired) {
+                console.log(`TrackingHub Debug: typ:/ Pfad erkannt. Feuere automatisches ${eventName} Event.`);
+                
+                // Nutzerdaten vom Session-Kurier abholen und restlos löschen
+                const tempData = getAndClearTempUserData();
+                
+                const typPayload = {
+                    'event': eventName, 
+                    'event_name': eventName, 
+                    'event_time': Math.floor(Date.now() / 1000), 
+                    'action_source': 'website',
+                    'event_id': generateUUID(), 
+                    'th_user_data_email_address': tempData.email || "",
+                    'th_user_data_phone_number': tempData.phone || "",
+                    'th_user_data_first_name': tempData.firstName || "",
+                    'th_user_data_last_name': tempData.lastName || "",
+                    'th_user_data_city': tempData.city || "",
+                    'th_user_data_postal_code': tempData.postalCode || "",
+                    'th_user_data_country': tempData.country || "",
+                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                    'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
+                    'th_tracking_data_utm_term': getStorageWithExpiry('thub_utm_term'),
+                    'th_tracking_data_lead_id': currentLeadId,
+                    'th_tracking_data_user_agent': navigator.userAgent,
+                    'th_tracking_data_page_url': window.location.href.split(/[?#]/)[0],
+                    'th_tracking_data_fbc': getCookie('_fbc') || fallbackFbc || "",
+                    'th_tracking_data_fbp': getCookie('_fbp') || "",
+                    'th_tracking_data_gclid': getStorageWithExpiry('thub_gclid'),
+                    'th_tracking_data_wbraid': getStorageWithExpiry('thub_wbraid'),
+                    'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
+                };
+
+                pushOrFetch(typPayload);
+                sessionStorage.setItem('thub_fired_' + eventName, 'true'); // Stempel gegen Duplikate setzen
+            } else {
+                console.log(`TrackingHub Debug: Event ${eventName} wurde in dieser Session bereits gefeuert. typ:/ wird übersprungen.`);
+            }
         }
 
         // ---------------------------------------------------------
@@ -257,54 +373,54 @@ function bootTrackingHub() {
         });
 
         // ---------------------------------------------------------
-        // STUFE 2: SUBMIT LOGIK (Doppelter Boden für Mobile & Desktop)
+        // STUFE 2: SUBMIT LOGIK (form:/ und Bypass)
         // ---------------------------------------------------------
-        
-        // Zentrale Funktion: Baut den Payload und verschickt ihn
+        function extractUserDataFromForm(form) {
+            function getSafeValue(fieldId) {
+                if (!fieldId) return "";
+                var field = form.querySelector('[id="' + fieldId + '"]');
+                return field ? field.value : "";
+            }
+            return {
+                email: getSafeValue(config.userDataFields.email),
+                phone: getSafeValue(config.userDataFields.phone),
+                firstName: getSafeValue(config.userDataFields.firstName),
+                lastName: getSafeValue(config.userDataFields.lastName),
+                city: getSafeValue(config.userDataFields.city),
+                postalCode: getSafeValue(config.userDataFields.postalCode),
+                country: getSafeValue(config.userDataFields.country)
+            };
+        }
+
         function handleFormSubmit(form) {
             if (!form) return;
 
-            // Deduplizierung: Schützt vor doppeltem Senden, wenn beide Methoden anschlagen
             if (form.dataset.thubSubmitted === 'true') {
                 console.log("TrackingHub Debug: Formular wurde bereits erfasst. Abbruch (Deduplizierung).");
                 return;
             }
-
-            let matchedEventName = null;
-
-            if (isPathMatching(config.cLead, currentPath)) {
-                matchedEventName = 'generate_lead';
-            } else if (isPathMatching(config.cSchedule, currentPath)) {
-                matchedEventName = 'schedule';
-            } else if (isPathMatching(config.cPurchase, currentPath)) {
-                matchedEventName = 'purchase';
-            }
-
-            if (!matchedEventName) {
-                console.log("TrackingHub Debug: Kein Event-Pfad für diese URL definiert. Submit wird ignoriert.");
-                return; 
-            }
             
-            if (form.querySelector('[id="' + config.userDataFields.email + '"]')) {
-                function getSafeValue(fieldId) {
-                    if (!fieldId) return "";
-                    var field = form.querySelector('[id="' + fieldId + '"]');
-                    return field ? field.value : "";
-                }
+            form.dataset.thubSubmitted = 'true';
+            const userData = extractUserDataFromForm(form);
 
+            // Bypass-Logik: Wenn es ein reguläres Submit-Event (form:/) ist, 
+            // feuern wir sofort und blockieren den Umweg über den Session-Kurier.
+            if (pageEvents.matchedFormEvent) {
+                const eventName = pageEvents.matchedFormEvent;
+                
                 const payload = {
-                    'event': matchedEventName, 
-                    'event_name': matchedEventName, 
+                    'event': eventName, 
+                    'event_name': eventName, 
                     'event_time': Math.floor(Date.now() / 1000), 
                     'action_source': 'website',
                     'event_id': generateUUID(), 
-                    'th_user_data_email_address': getSafeValue(config.userDataFields.email),
-                    'th_user_data_phone_number': getSafeValue(config.userDataFields.phone),
-                    'th_user_data_first_name': getSafeValue(config.userDataFields.firstName),
-                    'th_user_data_last_name': getSafeValue(config.userDataFields.lastName),
-                    'th_user_data_city': getSafeValue(config.userDataFields.city),
-                    'th_user_data_postal_code': getSafeValue(config.userDataFields.postalCode),
-                    'th_user_data_country': getSafeValue(config.userDataFields.country),
+                    'th_user_data_email_address': userData.email,
+                    'th_user_data_phone_number': userData.phone,
+                    'th_user_data_first_name': userData.firstName,
+                    'th_user_data_last_name': userData.lastName,
+                    'th_user_data_city': userData.city,
+                    'th_user_data_postal_code': userData.postalCode,
+                    'th_user_data_country': userData.country,
                     'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
                     'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
                     'th_tracking_data_utm_term': getStorageWithExpiry('thub_utm_term'),
@@ -318,15 +434,19 @@ function bootTrackingHub() {
                     'th_tracking_data_gbraid': getStorageWithExpiry('thub_gbraid')
                 };
 
-                // Formular digital abstempeln
-                form.dataset.thubSubmitted = 'true';
-                
-                // An GTM oder Server senden
                 pushOrFetch(payload);
+                sessionStorage.setItem('thub_fired_' + eventName, 'true'); // Duplikate auf Folgeseiten verhindern
+            } else {
+                // Wenn kein Event ausgelöst wurde (Weiterleitung erwartet), sichern wir die Daten für max. 25 Sekunden
+                if (userData.email && userData.email !== "") {
+                    saveTempUserData(userData);
+                } else {
+                    console.log("TrackingHub Debug: Submit auf Nicht-Event-Seite, aber keine Email gefunden. Kurier übersprungen.");
+                }
             }
         }
 
-        // METHODE A: Elementor / jQuery Fallback (Standard für Desktop)
+        // METHODE A: Elementor / jQuery Fallback
         function initTrackingHubTracking() {
             if (typeof jQuery !== 'undefined') {
                 jQuery(document).on('submit_success', function(event, response) {
@@ -339,26 +459,21 @@ function bootTrackingHub() {
         }
         initTrackingHubTracking();
 
-        // METHODE B: Universeller HTML5 & iOS Listener (Der Retter für Mobile & Custom Builder)
+        // METHODE B: Universeller HTML5 & iOS Listener
         document.addEventListener('submit', function(event) {
             const form = event.target;
             
-            // 1. Nativer Check: Sind alle HTML5 Pflichtfelder ausgefüllt?
             if (form.checkValidity && !form.checkValidity()) {
                 console.log("TrackingHub Debug: Methode B (Nativ) - HTML5 Validierung fehlgeschlagen.");
                 return;
             }
 
-            // 2. Kurz warten (200ms), damit Custom Pagebuilder ihre Fehlermeldungen (z.B. falsche Email) rendern können
             setTimeout(() => {
-                // Wildcard-Suche nach Fehlerklassen (Elementor, Wix, Funnelcockpit, CF7)
                 const hasErrors = form.querySelector('[class*="error"], [class*="invalid"], [class*="danger"], .elementor-message-danger');
-                
                 if (hasErrors) {
                     console.log("TrackingHub Debug: Methode B (Nativ) - Custom Formularfehler erkannt. Abbruch.");
                     return;
                 }
-                
                 console.log("TrackingHub Debug: Methode B (Nativ) - Formular gültig erkannt.");
                 handleFormSubmit(form);
             }, 200);
@@ -384,30 +499,30 @@ function bootTrackingHub() {
                 return (val && val !== "") ? val : "<span style='color: #ff5252;'>nicht gesetzt</span>";
             }
             
-            // Kombinierte Formatierung für URL- und Storage-Werte
             function formatDualVal(paramName) {
                 const urlVal = getCleanParam(paramName);
                 const storageVal = getStorageWithExpiry('thub_' + paramName);
-                
                 const urlStr = (urlVal && urlVal.trim() !== "") ? urlVal : "<span style='color: #ff5252;'>kein Parameter</span>";
                 const storageStr = (storageVal && storageVal !== "") ? storageVal : "<span style='color: #ff5252;'>nicht gesetzt</span>";
-                
                 return `${urlStr} / ${storageStr}`;
             }
 
             function renderDebugTable() {
-                
-                let matchedEventNameForDebug = "Kein Event definiert (Submit wird ignoriert)";
-                let eventColor = "#ff5252"; // Rot
+                let matchedEventNameForDebug = "Kein Event definiert";
+                let requireSubmitStr = "N/A";
+                let eventColor = "#ff5252"; 
 
-                if (isPathMatching(config.cLead, currentPath)) {
-                    matchedEventNameForDebug = "generate_lead";
+                if (pageEvents.matchedFormEvent && pageEvents.matchedTypEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedFormEvent + " (Form & TYP)";
+                    requireSubmitStr = "Beides hinterlegt (Konflikt möglich)";
+                    eventColor = "#FFC107"; // Gelb
+                } else if (pageEvents.matchedFormEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedFormEvent;
+                    requireSubmitStr = "Ja (form:/)";
                     eventColor = "#4CAF50"; // Grün
-                } else if (isPathMatching(config.cSchedule, currentPath)) {
-                    matchedEventNameForDebug = "schedule";
-                    eventColor = "#4CAF50"; 
-                } else if (isPathMatching(config.cPurchase, currentPath)) {
-                    matchedEventNameForDebug = "purchase";
+                } else if (pageEvents.matchedTypEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedTypEvent;
+                    requireSubmitStr = "Nein (typ:/)";
                     eventColor = "#4CAF50"; 
                 }
 
@@ -422,7 +537,9 @@ function bootTrackingHub() {
                             </tr>
                         </thead>
                         <tbody>
-                            <tr style="border-bottom: 2px solid #ff9800; background-color: #2a2a2a;"><td style="padding: 12px; color: #9C27B0;"><b>Routing</b></td><td style="padding: 12px; font-weight: bold;">Erkanntes Event</td><td style="padding: 12px; color: ${eventColor}; font-weight: bold; font-size: 16px;">${matchedEventNameForDebug}</td></tr>
+                            <tr style="border-bottom: 1px solid #333; background-color: #2a2a2a;"><td style="padding: 12px; color: #9C27B0;"><b>Routing</b></td><td style="padding: 12px; font-weight: bold;">Erkanntes Event</td><td style="padding: 12px; color: ${eventColor}; font-weight: bold; font-size: 16px;">${matchedEventNameForDebug}</td></tr>
+                            <tr style="border-bottom: 2px solid #ff9800; background-color: #2a2a2a;"><td style="padding: 12px; color: #9C27B0;"><b>Routing</b></td><td style="padding: 12px; font-weight: bold;">Form-Submit erforderlich</td><td style="padding: 12px; color: ${eventColor}; font-weight: bold; font-size: 16px;">${requireSubmitStr}</td></tr>
+                            
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #4CAF50;"><b>ID</b></td><td style="padding: 8px;">Lead ID</td><td style="padding: 8px; color: #fff;">${formatVal(currentLeadId)}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gclid / gclid (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('gclid')}</td></tr>
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">wbraid / wbraid (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('wbraid')}</td></tr>
@@ -456,7 +573,6 @@ function bootTrackingHub() {
 
         initLiveDebugger();
 
-        // --- VISUELLER FETCH-CHECK WARNHINWEIS ---
         function initFetchCheckWarning() {
             if (urlParams.get('fetch_check') !== 'true') return;
 
@@ -472,7 +588,6 @@ function bootTrackingHub() {
     }, 1500);
 }
 
-// Bulletproof Start-Logik: Startet sofort, falls Seite schon geladen ist
 if (document.readyState === "complete" || document.readyState === "interactive") {
     bootTrackingHub();
 } else {
