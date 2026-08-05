@@ -2,8 +2,8 @@
     // TrackingHub Konfiguration global speichern
     window.TrackingHubLeadConfig = {
         serverEndpoint: "https://sst.vabusinessacademy.de/lead-data",
-        cLead: "/capi-facebook, /kontakt", 
-        cSchedule: "/termin-buchen",
+        cLead: "form:/capi-facebook, form:/webinar/6-schritte-zu-mehr-leads, form:/youtube-ads-guide",
+	    cSchedule: "typ:/typ-blueprint-vsl",
         cPurchase: "/danke",
         negativPV: "/impressum, /datenschutz",
         trackingfields: {
