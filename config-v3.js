@@ -4,7 +4,7 @@
         serverEndpoint: "https://sst.vabusinessacademy.de/lead-data",
         cLead: "form:/capi-facebook, form:/webinar/6-schritte-zu-mehr-leads, form:/youtube-ads-guide",
 	    cSchedule: "typ:/typ-blueprint-vsl",
-        cPurchase: "/danke",
+        cPurchase: "typ:/danke",
         negativPV: "/impressum, /datenschutz",
         trackingfields: {
             lead_id: "form-field-thub_lead_id",
