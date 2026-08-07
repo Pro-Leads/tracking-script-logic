@@ -8,6 +8,7 @@
         negativPV: "/impressum, /datenschutz",
         trackingfields: {
             lead_id: "form-field-thub_lead_id",
+			funnel: "form-field-thub_funnel",
             utm_source: "form-field-utm_source",
             utm_medium: "form-field-utm_medium",
             utm_campaign: "form-field-utm_campaign",
