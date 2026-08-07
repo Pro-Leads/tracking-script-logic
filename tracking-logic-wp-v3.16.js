@@ -1,4 +1,3 @@
-<script>
 // --- V5.3.2_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
@@ -574,4 +573,3 @@ if (document.readyState === "complete" || document.readyState === "interactive")
     document.addEventListener("DOMContentLoaded", bootTrackingHub);
     window.addEventListener("load", bootTrackingHub);
 }
-</script>
