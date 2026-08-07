@@ -1,9 +1,9 @@
-// --- V5.2.3_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.2.4_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.2.3).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.2.4).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -302,7 +302,7 @@ function bootTrackingHub() {
                     'th_user_data_city': tempData.city || "",
                     'th_user_data_postal_code': tempData.postalCode || "",
                     'th_user_data_country': tempData.country || "",
-                    'th_tracking_data_funnel': tempData.funnel || "", // NEU integriert
+                    'th_tracking_data_funnel': tempData.funnel || "",
                     'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
                     'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
                     'th_tracking_data_thub_ad_id': getStorageWithExpiry('thub_ad_id'), 
@@ -368,7 +368,7 @@ function bootTrackingHub() {
                 city: getSafeValue(config.userDataFields.city),
                 postalCode: getSafeValue(config.userDataFields.postalCode),
                 country: getSafeValue(config.userDataFields.country),
-                funnel: getSafeValue(config.trackingfields.funnel) // Auslesen aus trackingfields
+                funnel: getSafeValue(config.trackingfields.funnel) 
             };
         }
 
@@ -399,7 +399,7 @@ function bootTrackingHub() {
                     'th_user_data_city': userData.city,
                     'th_user_data_postal_code': userData.postalCode,
                     'th_user_data_country': userData.country,
-                    'th_tracking_data_funnel': userData.funnel, // NEU integriert
+                    'th_tracking_data_funnel': userData.funnel, 
                     'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
                     'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
                     'th_tracking_data_thub_ad_id': getStorageWithExpiry('thub_ad_id'),
@@ -466,8 +466,15 @@ function bootTrackingHub() {
 
             function getLiveFieldValue(fieldId) {
                 if (!fieldId) return "nicht gesetzt";
-                const field = document.querySelector('[id="' + fieldId + '"]');
-                return (field && field.value.trim() !== "") ? field.value : "nicht gesetzt";
+                const fields = document.querySelectorAll('[id="' + fieldId + '"]');
+                for (let i = 0; i < fields.length; i++) {
+                    let field = fields[i];
+                    let val = field.value || field.getAttribute('value');
+                    if (val && val.trim() !== "") {
+                        return val.trim();
+                    }
+                }
+                return "nicht gesetzt";
             }
 
             function formatVal(val) {
