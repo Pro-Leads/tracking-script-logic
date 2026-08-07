@@ -1,9 +1,9 @@
-// --- V5.2.4_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.2.5_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.2.4).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.2.5).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -302,7 +302,7 @@ function bootTrackingHub() {
                     'th_user_data_city': tempData.city || "",
                     'th_user_data_postal_code': tempData.postalCode || "",
                     'th_user_data_country': tempData.country || "",
-                    'th_tracking_data_funnel': tempData.funnel || "",
+                    'th_tracking_data_funnel': tempData.funnel || "", 
                     'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
                     'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
                     'th_tracking_data_thub_ad_id': getStorageWithExpiry('thub_ad_id'), 
@@ -552,7 +552,7 @@ function bootTrackingHub() {
             renderDebugTable();
             document.addEventListener('input', renderDebugTable);
             document.addEventListener('change', renderDebugTable);
-            document.addEventListener('click', () => setTimeout(renderDebugTable, 100));
+            document.addEventListener('click', () => setTimeout(renderDebugTable, 600)); // HIER LIEGT DIE ANPASSUNG
         }
 
         initLiveDebugger();
