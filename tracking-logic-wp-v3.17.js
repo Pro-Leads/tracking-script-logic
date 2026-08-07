@@ -1,9 +1,10 @@
-// --- V5.3.2_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+<script>
+// --- V5.2.3_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.3.2).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.2.3).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -42,7 +43,7 @@ function bootTrackingHub() {
     function saveTempUserData(dataObj) {
         const item = { data: dataObj, expiry: Date.now() + 25000 };
         sessionStorage.setItem('thub_temp_userdata', JSON.stringify(item));
-        console.log("TrackingHub Debug: Daten in Session-Kurier gespeichert (25s Timer läuft).");
+        console.log("TrackingHub Debug: Nutzerdaten in Session-Kurier gespeichert (25s Timer läuft).");
     }
 
     function getAndClearTempUserData() {
@@ -56,7 +57,7 @@ function bootTrackingHub() {
                 console.log("TrackingHub Debug: Session-Kurier abgelaufen (> 25s). Daten verworfen.");
                 return {};
             }
-            console.log("TrackingHub Debug: Frische Daten aus Session-Kurier geladen und sicher gelöscht.");
+            console.log("TrackingHub Debug: Frische Nutzerdaten aus Session-Kurier geladen und sicher gelöscht.");
             return item.data || {};
         } catch(e) {
             return {};
@@ -302,7 +303,7 @@ function bootTrackingHub() {
                     'th_user_data_city': tempData.city || "",
                     'th_user_data_postal_code': tempData.postalCode || "",
                     'th_user_data_country': tempData.country || "",
-                    'th_tracking_data_funnel': tempData.funnel || "",
+                    'th_tracking_data_funnel': tempData.funnel || "", // NEU integriert
                     'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
                     'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
                     'th_tracking_data_thub_ad_id': getStorageWithExpiry('thub_ad_id'), 
@@ -354,8 +355,7 @@ function bootTrackingHub() {
             });
         });
 
-        // --- UMBENANNT FÜR SEMANTISCHE SAUBERKEIT ---
-        function extractFormData(form) {
+        function extractUserDataFromForm(form) {
             function getSafeValue(fieldId) {
                 if (!fieldId) return "";
                 var field = form.querySelector('[id="' + fieldId + '"]');
@@ -369,7 +369,7 @@ function bootTrackingHub() {
                 city: getSafeValue(config.userDataFields.city),
                 postalCode: getSafeValue(config.userDataFields.postalCode),
                 country: getSafeValue(config.userDataFields.country),
-                funnel: getSafeValue(config.trackingfields.funnel) 
+                funnel: getSafeValue(config.trackingfields.funnel) // Auslesen aus trackingfields
             };
         }
 
@@ -382,7 +382,7 @@ function bootTrackingHub() {
             }
             
             form.dataset.thubSubmitted = 'true';
-            const formData = extractFormData(form);
+            const userData = extractUserDataFromForm(form);
 
             if (pageEvents.matchedFormEvent) {
                 const eventName = pageEvents.matchedFormEvent;
@@ -393,17 +393,17 @@ function bootTrackingHub() {
                     'event_time': Math.floor(Date.now() / 1000), 
                     'action_source': 'website',
                     'event_id': generateUUID(), 
-                    'th_user_data_email_address': formData.email,
-                    'th_user_data_phone_number': formData.phone,
-                    'th_user_data_first_name': formData.firstName,
-                    'th_user_data_last_name': formData.lastName,
-                    'th_user_data_city': formData.city,
-                    'th_user_data_postal_code': formData.postalCode,
-                    'th_user_data_country': formData.country,
-                    'th_tracking_data_funnel': formData.funnel, 
+                    'th_user_data_email_address': userData.email,
+                    'th_user_data_phone_number': userData.phone,
+                    'th_user_data_first_name': userData.firstName,
+                    'th_user_data_last_name': userData.lastName,
+                    'th_user_data_city': userData.city,
+                    'th_user_data_postal_code': userData.postalCode,
+                    'th_user_data_country': userData.country,
+                    'th_tracking_data_funnel': userData.funnel, // NEU integriert
                     'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
                     'th_tracking_data_utm_source': getStorageWithExpiry('thub_utm_source'),
-                    'th_tracking_data_thub_ad_id': getStorageWithExpiry('thub_ad_id'), 
+                    'th_tracking_data_thub_ad_id': getStorageWithExpiry('thub_ad_id'),
                     'th_tracking_data_lead_id': currentLeadId,
                     'th_tracking_data_user_agent': navigator.userAgent,
                     'th_tracking_data_page_url': window.location.href.split(/[?#]/)[0],
@@ -417,8 +417,8 @@ function bootTrackingHub() {
                 pushOrFetch(payload);
                 sessionStorage.setItem('thub_fired_' + eventName, 'true'); 
             } else {
-                if (formData.email && formData.email !== "") {
-                    saveTempUserData(formData);
+                if (userData.email && userData.email !== "") {
+                    saveTempUserData(userData);
                 } else {
                     console.log("TrackingHub Debug: Submit auf Nicht-Event-Seite, aber keine Email gefunden. Kurier übersprungen.");
                 }
@@ -517,7 +517,6 @@ function bootTrackingHub() {
                             <tr style="border-bottom: 2px solid #ff9800; background-color: #2a2a2a;"><td style="padding: 12px; color: #9C27B0;"><b>Routing</b></td><td style="padding: 12px; font-weight: bold;">Form-Submit erforderlich</td><td style="padding: 12px; color: ${eventColor}; font-weight: bold; font-size: 16px;">${requireSubmitStr}</td></tr>
                             
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #4CAF50;"><b>ID</b></td><td style="padding: 8px;">Lead ID</td><td style="padding: 8px; color: #fff;">${formatVal(currentLeadId)}</td></tr>
-                            
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #E91E63;"><b>Tracking-Feld (Live)</b></td><td style="padding: 8px;">Funnel (Versteckt)</td><td style="padding: 8px; color: #fff;">${formatVal(getLiveFieldValue(config.trackingfields.funnel))}</td></tr>
                             
                             <tr style="border-bottom: 1px solid #333;"><td style="padding: 8px; color: #2196F3;"><b>Klick-IDs</b></td><td style="padding: 8px;">gclid / gclid (Storage)</td><td style="padding: 8px; color: #fff;">${formatDualVal('gclid')}</td></tr>
@@ -573,3 +572,4 @@ if (document.readyState === "complete" || document.readyState === "interactive")
     document.addEventListener("DOMContentLoaded", bootTrackingHub);
     window.addEventListener("load", bootTrackingHub);
 }
+</script>
