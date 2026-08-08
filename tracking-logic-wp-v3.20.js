@@ -1,9 +1,9 @@
-// --- V5.2.5_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.2.7_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.2.5).");
+    console.log("TrackingHub Debug: Skript gebootet (V5.2.7).");
 
     const urlParams = new URLSearchParams(window.location.search);
     
@@ -329,15 +329,31 @@ function bootTrackingHub() {
                 const elements = document.querySelectorAll('[id="' + fieldId + '"]');
                 elements.forEach(el => safeSetValue(el, value));
             }
-
-            fillMultiple(config.trackingfields.lead_id, currentLeadId);
-            fillMultiple(config.trackingfields.utm_source, getStorageWithExpiry('thub_utm_source'));
-            fillMultiple(config.trackingfields.utm_medium, getStorageWithExpiry('thub_utm_medium'));
-            fillMultiple(config.trackingfields.utm_campaign, getStorageWithExpiry('thub_utm_campaign'));
-            fillMultiple(config.trackingfields.utm_content, getStorageWithExpiry('thub_utm_content'));
+            
+            if (config.trackingfields.lead_id) {
+                fillMultiple(config.trackingfields.lead_id, currentLeadId);
+            }
+            if (config.trackingfields.utm_source) {
+                fillMultiple(config.trackingfields.utm_source, getStorageWithExpiry('thub_utm_source'));
+            }
+            if (config.trackingfields.utm_medium) {
+                fillMultiple(config.trackingfields.utm_medium, getStorageWithExpiry('thub_utm_medium'));
+            }
+            if (config.trackingfields.utm_campaign) {
+                fillMultiple(config.trackingfields.utm_campaign, getStorageWithExpiry('thub_utm_campaign'));
+            }
+            if (config.trackingfields.utm_content) {
+                fillMultiple(config.trackingfields.utm_content, getStorageWithExpiry('thub_utm_content'));
+            }
             
             const adIdField = config.trackingfields.thub_ad_id || config.trackingfields.utm_term;
-            fillMultiple(adIdField, getStorageWithExpiry('thub_ad_id'));
+            if (adIdField) {
+                fillMultiple(adIdField, getStorageWithExpiry('thub_ad_id'));
+            }
+
+            if (config.trackingfields.page_url) {
+                fillMultiple(config.trackingfields.page_url, window.location.href.split(/[?#]/)[0]);
+            }
 
             return true; 
         }
@@ -552,7 +568,7 @@ function bootTrackingHub() {
             renderDebugTable();
             document.addEventListener('input', renderDebugTable);
             document.addEventListener('change', renderDebugTable);
-            document.addEventListener('click', () => setTimeout(renderDebugTable, 600)); // HIER LIEGT DIE ANPASSUNG
+            document.addEventListener('click', () => setTimeout(renderDebugTable, 600)); 
         }
 
         initLiveDebugger();
