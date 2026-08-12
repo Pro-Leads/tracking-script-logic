@@ -1,11 +1,10 @@
-// --- V5.2.9_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.3.0_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.2.9). Initialisiere Single Source of Truth.");
+    console.log("TrackingHub Debug: Skript gebootet (V5.3.0). Alle Prozesse pausieren für 1500ms.");
 
-    // --- UTILITIES ---
     const urlParams = new URLSearchParams(window.location.search);
     function getCleanParam(paramName) {
         const val = urlParams.get(paramName);
@@ -85,86 +84,84 @@ function bootTrackingHub() {
         }
     }
 
-    // --- SINGLE SOURCE OF TRUTH (SSOT) DATA BRAIN ---
-    const thubData = {
-        gclid: "", wbraid: "", gbraid: "", fbclid: "",
-        utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "",
-        thub_ad_id: "", fbc: "", fbp: "", lead_id: "", page_url: "", referrer: ""
-    };
-
-    // 1. Standard Parameter (URL First, Storage Second, Auto-Overwrite)
-    const standardParams = ['gclid', 'wbraid', 'gbraid', 'fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
-    standardParams.forEach(param => {
-        const liveVal = getCleanParam(param);
-        const storedVal = getStorageWithExpiry('thub_' + param);
-        
-        if (liveVal && liveVal !== "") {
-            thubData[param] = liveVal;
-            if (liveVal !== storedVal) setStorageWithExpiry('thub_' + param, liveVal, storageExpiryMinutes);
-        } else {
-            thubData[param] = storedVal || "";
-        }
-    });
-
-    // 2. Custom Ad ID Logic
-    const liveAdId = getCleanParam('thub_ad_id');
-    const storedAdId = getStorageWithExpiry('thub_ad_id');
-    if (liveAdId && liveAdId !== "") {
-        thubData.thub_ad_id = liveAdId;
-        if (liveAdId !== storedAdId) setStorageWithExpiry('thub_ad_id', liveAdId, storageExpiryMinutes);
-    } else if (thubData.utm_term !== "") {
-        thubData.thub_ad_id = thubData.utm_term;
-        if (thubData.utm_term !== storedAdId) setStorageWithExpiry('thub_ad_id', thubData.utm_term, storageExpiryMinutes);
-    } else {
-        thubData.thub_ad_id = storedAdId || "";
-    }
-
-    // 3. FBC Cookie Deduplication & Construction
-    const liveFbclid = getCleanParam('fbclid');
-    let fallbackFbc = "";
-    
-    if (liveFbclid && liveFbclid !== "") {
-        const root = '.' + window.location.hostname.split('.').slice(-2).join('.');
-        const host = window.location.hostname;
-        const pastDate = 'Thu, 01 Jan 1970 00:00:00 UTC';
-        
-        // Zerstöre alle doppelten/fehlerhaften Cookies
-        document.cookie = `_fbc=; expires=${pastDate}; path=/;`;
-        document.cookie = `_fbc=; expires=${pastDate}; domain=${root}; path=/;`;
-        document.cookie = `_fbc=; expires=${pastDate}; domain=${host}; path=/;`;
-
-        fallbackFbc = `fb.1.${Date.now()}.${liveFbclid}`;
-        setCookie('_fbc', fallbackFbc, 90); 
-    } else if (thubData.fbclid !== "") {
-        fallbackFbc = `fb.1.${Date.now()}.${thubData.fbclid}`;
-        if (!getCookie('_fbc')) setCookie('_fbc', fallbackFbc, 90);
-    }
-    
-    thubData.fbc = getCookie('_fbc') || fallbackFbc || "";
-    thubData.fbp = getCookie('_fbp') || "";
-
-    // 4. Lead ID Fallback Chain
-    const thubCookieName = 'thub_lead_id';
-    const thubOverrideValue = getCleanParam('thub') || getCleanParam('nli') || getCleanParam('nil');
-    const cookieLeadId = getCookie(thubCookieName) || getCookie('nao_lead_id');
-    const lsLeadId = localStorage.getItem(thubCookieName);
-
-    if (isValidUUID(thubOverrideValue)) thubData.lead_id = thubOverrideValue;
-    else if (isValidUUID(cookieLeadId)) thubData.lead_id = cookieLeadId;
-    else if (isValidUUID(lsLeadId)) thubData.lead_id = lsLeadId;
-    else thubData.lead_id = generateUUID();
-
-    setCookie(thubCookieName, thubData.lead_id, 90); 
-    localStorage.setItem(thubCookieName, thubData.lead_id); 
-
-    // 5. Native Environment Data
-    thubData.page_url = window.location.href.split(/[?#]/)[0];
-    thubData.referrer = document.referrer || "";
-
     // --- TIMEOUT ENGINE ---
     setTimeout(function() {
         
-        console.log("TrackingHub Debug: Starte Event-Verarbeitung (SSOT gesperrt).");
+        console.log("TrackingHub Debug: 1500ms abgelaufen. Konstruiere Single Source of Truth (SSOT).");
+        
+        // --- DATA BRAIN (thubData) ---
+        const thubData = {
+            gclid: "", wbraid: "", gbraid: "", fbclid: "",
+            utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "",
+            thub_ad_id: "", fbc: "", fbp: "", lead_id: "", page_url: "", referrer: ""
+        };
+
+        // 1. UTM & Klick-IDs (URL First, LS Update, LS Fallback)
+        const standardParams = ['gclid', 'wbraid', 'gbraid', 'fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+        standardParams.forEach(param => {
+            const liveVal = getCleanParam(param);
+            if (liveVal && liveVal !== "") {
+                thubData[param] = liveVal;
+                setStorageWithExpiry('thub_' + param, liveVal, storageExpiryMinutes);
+            } else {
+                thubData[param] = getStorageWithExpiry('thub_' + param);
+            }
+        });
+
+        // 2. Custom Ad ID
+        const liveAdId = getCleanParam('thub_ad_id');
+        if (liveAdId && liveAdId !== "") {
+            thubData.thub_ad_id = liveAdId;
+            setStorageWithExpiry('thub_ad_id', liveAdId, storageExpiryMinutes);
+        } else if (thubData.utm_term !== "") {
+            thubData.thub_ad_id = thubData.utm_term;
+            setStorageWithExpiry('thub_ad_id', thubData.utm_term, storageExpiryMinutes);
+        } else {
+            thubData.thub_ad_id = getStorageWithExpiry('thub_ad_id');
+        }
+
+        // 3. Meta Cookies (Reality-Check)
+        thubData.fbp = getCookie('_fbp') || "";
+        
+        const existingFbc = getCookie('_fbc');
+        if (thubData.fbclid !== "") {
+            if (existingFbc && existingFbc.includes(thubData.fbclid)) {
+                thubData.fbc = existingFbc;
+            } else {
+                const root = '.' + window.location.hostname.split('.').slice(-2).join('.');
+                const host = window.location.hostname;
+                const pastDate = 'Thu, 01 Jan 1970 00:00:00 UTC';
+                document.cookie = `_fbc=; expires=${pastDate}; path=/;`;
+                document.cookie = `_fbc=; expires=${pastDate}; domain=${root}; path=/;`;
+                document.cookie = `_fbc=; expires=${pastDate}; domain=${host}; path=/;`;
+
+                const fallbackFbc = `fb.1.${Date.now()}.${thubData.fbclid}`;
+                setCookie('_fbc', fallbackFbc, 90); 
+                thubData.fbc = fallbackFbc;
+            }
+        } else {
+            thubData.fbc = existingFbc || "";
+        }
+
+        // 4. Lead ID Fallback Chain (90 Tage Erneuerung / Absicherung über nli & nil)
+        const thubCookieName = 'thub_lead_id';
+        const urlLeadId = getCleanParam('thub') || getCleanParam('nli') || getCleanParam('nil');
+        const cookieLeadId = getCookie(thubCookieName) || getCookie('nao_lead_id') || localStorage.getItem(thubCookieName);
+
+        if (isValidUUID(urlLeadId)) thubData.lead_id = urlLeadId;
+        else if (isValidUUID(cookieLeadId)) thubData.lead_id = cookieLeadId;
+        else thubData.lead_id = generateUUID();
+
+        setCookie(thubCookieName, thubData.lead_id, 90); 
+        localStorage.setItem(thubCookieName, thubData.lead_id); 
+
+        // 5. Environment
+        thubData.page_url = window.location.href.split(/[?#]/)[0];
+        thubData.referrer = document.referrer || "";
+
+
+        // --- EVENT PROCESSING & INJECTION ---
+        console.log("TrackingHub Debug: SSOT verriegelt. Beginne Injektion.");
         const config = window.TrackingHubLeadConfig || {};
 
         if (!config.trackingfields) {
@@ -253,7 +250,6 @@ function bootTrackingHub() {
 
         const excludePageView = isPathMatchingSimple(config.negativPV, currentPath);
 
-        // PAYLOAD 1: PAGE VIEW
         if (!excludePageView) {
             const basePayload = {
                 'event': 'page_view', 
@@ -275,7 +271,6 @@ function bootTrackingHub() {
             pushOrFetch(basePayload);
         }
 
-        // PAYLOAD 2: TYP EVENT
         if (pageEvents.matchedTypEvent) {
             const eventName = pageEvents.matchedTypEvent;
             const hasFired = sessionStorage.getItem('thub_fired_' + eventName);
@@ -313,7 +308,6 @@ function bootTrackingHub() {
             }
         }
 
-        // ELEMENTOR INJECTION
         function fillAllFields() {
             function fillMultiple(fieldId, value) {
                 if (!fieldId || !value) return;
@@ -348,7 +342,6 @@ function bootTrackingHub() {
             });
         });
 
-        // FORM EXTRACTION
         function extractUserDataFromForm(form) {
             function getSafeValue(fieldId) {
                 if (!fieldId) return "";
@@ -367,7 +360,6 @@ function bootTrackingHub() {
             };
         }
 
-        // PAYLOAD 3: FORM SUBMIT
         function handleFormSubmit(form) {
             if (!form) return;
             if (form.dataset.thubSubmitted === 'true') return;
@@ -435,7 +427,6 @@ function bootTrackingHub() {
             }, 200);
         }, true);
 
-        // LIVE DEBUGGER
         function initLiveDebugger() {
             if (urlParams.get('thub-check-value') !== 'true') return;
 
@@ -487,7 +478,7 @@ function bootTrackingHub() {
                 }
 
                 const tableHTML = `
-                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.2.9)</h2>
+                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.3.0)</h2>
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 2px solid #555;">
