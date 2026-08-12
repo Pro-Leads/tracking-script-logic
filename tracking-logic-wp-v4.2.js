@@ -1,11 +1,24 @@
-// --- V5.3.0_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.3.2_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.3.0). Alle Prozesse pausieren für 1500ms.");
+    console.log("TrackingHub Debug: Skript gebootet (V5.3.2). Friere Umgebungsvariablen (Millisekunde 0) ein. Pausiere für 1500ms.");
 
-    const urlParams = new URLSearchParams(window.location.search);
+    // --- ABSOLUTE SNAPSHOT FREEZE (Millisekunde 0) ---
+    const frozenSearch = window.location.search;
+    const frozenHash = window.location.hash;
+    const frozenHref = window.location.href;
+    const frozenPathname = window.location.pathname;
+    const frozenHostname = window.location.hostname;
+    const frozenReferrer = document.referrer || "";
+
+    let searchString = frozenSearch;
+    if (!searchString && frozenHash.includes('?')) {
+        searchString = frozenHash.substring(frozenHash.indexOf('?'));
+    }
+    const urlParams = new URLSearchParams(searchString);
+    
     function getCleanParam(paramName) {
         const val = urlParams.get(paramName);
         return val ? val.replace(/\+/g, ' ') : null;
@@ -57,7 +70,7 @@ function bootTrackingHub() {
     function setCookie(name, value, days) {
         const d = new Date(); 
         d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-        const rootDomain = '.' + window.location.hostname.split('.').slice(-2).join('.');
+        const rootDomain = '.' + frozenHostname.split('.').slice(-2).join('.');
         document.cookie = `${name}=${value};expires=${d.toUTCString()};domain=${rootDomain};path=/;SameSite=Lax;Secure`;
     }
 
@@ -87,7 +100,7 @@ function bootTrackingHub() {
     // --- TIMEOUT ENGINE ---
     setTimeout(function() {
         
-        console.log("TrackingHub Debug: 1500ms abgelaufen. Konstruiere Single Source of Truth (SSOT).");
+        console.log("TrackingHub Debug: 1500ms abgelaufen. Konstruiere Single Source of Truth (SSOT) aus Snapshot.");
         
         // --- DATA BRAIN (thubData) ---
         const thubData = {
@@ -128,8 +141,8 @@ function bootTrackingHub() {
             if (existingFbc && existingFbc.includes(thubData.fbclid)) {
                 thubData.fbc = existingFbc;
             } else {
-                const root = '.' + window.location.hostname.split('.').slice(-2).join('.');
-                const host = window.location.hostname;
+                const root = '.' + frozenHostname.split('.').slice(-2).join('.');
+                const host = frozenHostname;
                 const pastDate = 'Thu, 01 Jan 1970 00:00:00 UTC';
                 document.cookie = `_fbc=; expires=${pastDate}; path=/;`;
                 document.cookie = `_fbc=; expires=${pastDate}; domain=${root}; path=/;`;
@@ -155,9 +168,9 @@ function bootTrackingHub() {
         setCookie(thubCookieName, thubData.lead_id, 90); 
         localStorage.setItem(thubCookieName, thubData.lead_id); 
 
-        // 5. Environment
-        thubData.page_url = window.location.href.split(/[?#]/)[0];
-        thubData.referrer = document.referrer || "";
+        // 5. Environment (Gefrorene Daten)
+        thubData.page_url = frozenHref.split(/[?#]/)[0];
+        thubData.referrer = frozenReferrer;
 
 
         // --- EVENT PROCESSING & INJECTION ---
@@ -170,7 +183,7 @@ function bootTrackingHub() {
         }
 
         config.userDataFields = config.userDataFields || {};
-        const currentPath = window.location.pathname;
+        const currentPath = frozenPathname;
 
         function safeSetValue(element, value) {
             if (element && value && element.value !== value) {
@@ -326,15 +339,14 @@ function bootTrackingHub() {
 
             if (config.trackingfields.page_url) fillMultiple(config.trackingfields.page_url, thubData.page_url);
             if (config.trackingfields.referrerURL) fillMultiple(config.trackingfields.referrerURL, thubData.referrer);
-
-            return true; 
         }
 
         let count = 0;
         const fbInterval = setInterval(() => {
             count++;
-            if (fillAllFields() || count >= 54) clearInterval(fbInterval);
-        }, 150);
+            fillAllFields();
+            if (count >= 54) clearInterval(fbInterval);
+        }, 225);
 
         ['focusin', 'click'].forEach(evt => {
             document.addEventListener(evt, () => {
@@ -478,7 +490,7 @@ function bootTrackingHub() {
                 }
 
                 const tableHTML = `
-                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.3.0)</h2>
+                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.3.2)</h2>
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 2px solid #555;">
