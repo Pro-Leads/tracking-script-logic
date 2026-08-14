@@ -1,20 +1,22 @@
-// --- V5.4.0_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.4.1_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+
+// --- ABSOLUTE MIKROSEKUNDE 0 SNAPSHOT ---
+// Globale Fixierung. Wartet auf nichts. Ignoriert blockierende DOM-Elemente.
+const _thub_frozenSearch = window.location.search;
+const _thub_frozenHash = window.location.hash;
+const _thub_frozenHref = window.location.href;
+const _thub_frozenPathname = window.location.pathname;
+const _thub_frozenReferrer = document.referrer || "";
+
 function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.4.0). Friere Umgebungsvariablen und Tracking-Daten (Millisekunde 0) ein.");
+    console.log("TrackingHub Debug: Skript gebootet (V5.4.1). Greife auf eingefrorene globale Variablen zu.");
 
-    // --- ABSOLUTE SNAPSHOT FREEZE (Millisekunde 0) ---
-    const frozenSearch = window.location.search;
-    const frozenHash = window.location.hash;
-    const frozenHref = window.location.href;
-    const frozenPathname = window.location.pathname;
-    const frozenReferrer = document.referrer || "";
-
-    let searchString = frozenSearch;
-    if (!searchString && frozenHash.includes('?')) {
-        searchString = frozenHash.substring(frozenHash.indexOf('?'));
+    let searchString = _thub_frozenSearch;
+    if (!searchString && _thub_frozenHash.includes('?')) {
+        searchString = _thub_frozenHash.substring(_thub_frozenHash.indexOf('?'));
     }
     const urlParams = new URLSearchParams(searchString);
     
@@ -67,7 +69,6 @@ function bootTrackingHub() {
         return null;
     }
 
-    // V5.4.0: Domain-Zwang restlos entfernt. Schützt vor Blockaden auf Subdomains/Localhost.
     function setCookie(name, value, days) {
         const d = new Date(); 
         d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
@@ -97,14 +98,13 @@ function bootTrackingHub() {
         }
     }
 
-    // --- DATA BRAIN (thubData) - SOFORTIGE KONSTRUKTION BEI MS 0 ---
+    // --- DATA BRAIN (thubData) ---
     const thubData = {
         gclid: "", wbraid: "", gbraid: "", fbclid: "",
         utm_source: "", utm_medium: "", utm_campaign: "", utm_content: "", utm_term: "",
         thub_ad_id: "", fbc: "", fbp: "", lead_id: "", page_url: "", referrer: ""
     };
 
-    // 1. UTM & Klick-IDs (URL First, LS Update, LS Fallback)
     const standardParams = ['gclid', 'wbraid', 'gbraid', 'fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
     standardParams.forEach(param => {
         const liveVal = getCleanParam(param);
@@ -116,7 +116,6 @@ function bootTrackingHub() {
         }
     });
 
-    // 2. Custom Ad ID
     const liveAdId = getCleanParam('thub_ad_id');
     if (liveAdId && liveAdId !== "") {
         thubData.thub_ad_id = liveAdId;
@@ -128,7 +127,6 @@ function bootTrackingHub() {
         thubData.thub_ad_id = getStorageWithExpiry('thub_ad_id');
     }
 
-    // 3. Lead ID Fallback Chain (Hart verriegelt in MS 0)
     const thubCookieName = 'thub_lead_id';
     const urlLeadId = getCleanParam('thub') || getCleanParam('nli') || getCleanParam('nil');
     const cookieLeadId = getCookie(thubCookieName) || getCookie('nao_lead_id') || localStorage.getItem(thubCookieName);
@@ -140,17 +138,14 @@ function bootTrackingHub() {
     setCookie(thubCookieName, thubData.lead_id, 90); 
     localStorage.setItem(thubCookieName, thubData.lead_id); 
 
-    // 4. Environment (Gefrorene Daten)
-    thubData.page_url = frozenHref.split(/[?#]/)[0];
-    thubData.referrer = frozenReferrer;
+    thubData.page_url = _thub_frozenHref.split(/[?#]/)[0];
+    thubData.referrer = _thub_frozenReferrer;
 
-
-    // --- TIMEOUT ENGINE (Wartet nur noch auf Meta-Pixel) ---
+    // --- TIMEOUT ENGINE ---
     setTimeout(function() {
         
         console.log("TrackingHub Debug: 1500ms abgelaufen. Lese Meta-Cookies aus und starte Injektion.");
         
-        // 5. Meta Cookies (Verzögert, um Pixel-Zeit zu geben)
         thubData.fbp = getCookie('_fbp') || "";
         
         const existingFbc = getCookie('_fbc');
@@ -166,7 +161,6 @@ function bootTrackingHub() {
             thubData.fbc = existingFbc || "";
         }
 
-        // --- EVENT PROCESSING & INJECTION ---
         const config = window.TrackingHubLeadConfig || {};
 
         if (!config.trackingfields) {
@@ -175,7 +169,7 @@ function bootTrackingHub() {
         }
 
         config.userDataFields = config.userDataFields || {};
-        const currentPath = frozenPathname;
+        const currentPath = _thub_frozenPathname;
 
         function safeSetValue(element, value) {
             if (element && value && element.value !== value) {
@@ -186,7 +180,6 @@ function bootTrackingHub() {
             }
         }
 
-        // V5.4.0: Brutaler sendBeacon Fallback implementiert
         function pushOrFetch(payload) {
             const isTestMode = (urlParams.get('fetch_check') === 'true');
             const isGtmActive = (typeof window.google_tag_manager !== 'undefined' && Object.keys(window.google_tag_manager).length > 0);
@@ -346,9 +339,13 @@ function bootTrackingHub() {
             if (count >= 54) clearInterval(fbInterval);
         }, 225);
 
+        // V5.4.1: Fokus-Delegation. Tötet Mikro-Ruckler bei sinnlosen Klicks.
         ['focusin', 'click'].forEach(evt => {
-            document.addEventListener(evt, () => {
-                setTimeout(fillAllFields, 100);
+            document.addEventListener(evt, (e) => {
+                const tag = e.target.tagName;
+                if (tag === 'INPUT' || tag === 'FORM' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                    setTimeout(fillAllFields, 100);
+                }
             });
         });
 
@@ -415,12 +412,15 @@ function bootTrackingHub() {
             }
         }
 
+        // V5.4.1: Kill-Switch eingebaut. Beendet sinnlose Suche nach 5 Sekunden.
+        let jqRetries = 0;
         function initTrackingHubTracking() {
             if (typeof jQuery !== 'undefined') {
                 jQuery(document).on('submit_success', function(event, response) {
                     handleFormSubmit(event.target);
                 });
-            } else {
+            } else if (jqRetries < 50) {
+                jqRetries++;
                 setTimeout(initTrackingHubTracking, 100);
             }
         }
@@ -488,7 +488,7 @@ function bootTrackingHub() {
                 }
 
                 const tableHTML = `
-                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.4.0)</h2>
+                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.4.1)</h2>
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 2px solid #555;">
