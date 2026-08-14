@@ -1,4 +1,4 @@
-// --- V5.4.1_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.4.2_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 
 // --- ABSOLUTE MIKROSEKUNDE 0 SNAPSHOT ---
 // Globale Fixierung. Wartet auf nichts. Ignoriert blockierende DOM-Elemente.
@@ -12,7 +12,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.4.1). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V5.4.2). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -28,9 +28,13 @@ function bootTrackingHub() {
     const storageExpiryMinutes = 43200; // 30 Tage Limit für UTMs und Ad-IDs
     
     function setStorageWithExpiry(key, value, minutes) {
-        const now = new Date();
-        const item = { value: value, expiry: now.getTime() + (minutes * 60 * 1000) };
-        localStorage.setItem(key, JSON.stringify(item));
+        try {
+            const now = new Date();
+            const item = { value: value, expiry: now.getTime() + (minutes * 60 * 1000) };
+            localStorage.setItem(key, JSON.stringify(item));
+        } catch(e) {
+            // Lautloser Fallback bei strikten Browser-Blockaden (z.B. Safari Private Mode)
+        }
     }
 
     function getStorageWithExpiry(key) {
@@ -136,7 +140,9 @@ function bootTrackingHub() {
     else thubData.lead_id = generateUUID();
 
     setCookie(thubCookieName, thubData.lead_id, 90); 
-    localStorage.setItem(thubCookieName, thubData.lead_id); 
+    try {
+        localStorage.setItem(thubCookieName, thubData.lead_id);
+    } catch(e) {}
 
     thubData.page_url = _thub_frozenHref.split(/[?#]/)[0];
     thubData.referrer = _thub_frozenReferrer;
@@ -339,7 +345,6 @@ function bootTrackingHub() {
             if (count >= 54) clearInterval(fbInterval);
         }, 225);
 
-        // V5.4.1: Fokus-Delegation. Tötet Mikro-Ruckler bei sinnlosen Klicks.
         ['focusin', 'click'].forEach(evt => {
             document.addEventListener(evt, (e) => {
                 const tag = e.target.tagName;
@@ -412,7 +417,6 @@ function bootTrackingHub() {
             }
         }
 
-        // V5.4.1: Kill-Switch eingebaut. Beendet sinnlose Suche nach 5 Sekunden.
         let jqRetries = 0;
         function initTrackingHubTracking() {
             if (typeof jQuery !== 'undefined') {
@@ -488,7 +492,7 @@ function bootTrackingHub() {
                 }
 
                 const tableHTML = `
-                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.4.1)</h2>
+                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.4.2)</h2>
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 2px solid #555;">
