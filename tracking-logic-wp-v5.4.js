@@ -1,7 +1,5 @@
-// --- V5.4.2_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V5.4.3_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
 
-// --- ABSOLUTE MIKROSEKUNDE 0 SNAPSHOT ---
-// Globale Fixierung. Wartet auf nichts. Ignoriert blockierende DOM-Elemente.
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
 const _thub_frozenHref = window.location.href;
@@ -12,7 +10,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.4.2). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V5.4.3). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -73,10 +71,21 @@ function bootTrackingHub() {
         return null;
     }
 
+    // V5.4.3: Intelligentes Root-Domain-Routing. Verschmilzt Frontend- und Server-Cookie.
     function setCookie(name, value, days) {
         const d = new Date(); 
         d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-        document.cookie = `${name}=${value};expires=${d.toUTCString()};path=/;SameSite=Lax;Secure`;
+        
+        let domainString = "";
+        const host = window.location.hostname;
+        
+        // Berechnet die echte Root-Domain und ignoriert reine Netzwerk-IPs
+        if (host.includes('.') && !/^[0-9.]+$/.test(host)) {
+            const rootDomain = host.split('.').slice(-2).join('.');
+            domainString = `;domain=.${rootDomain}`;
+        }
+        
+        document.cookie = `${name}=${value};expires=${d.toUTCString()}${domainString};path=/;SameSite=Lax;Secure`;
     }
 
     function isValidUUID(id) {
@@ -492,7 +501,7 @@ function bootTrackingHub() {
                 }
 
                 const tableHTML = `
-                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.4.2)</h2>
+                    <h2 style="color: #ff9800; margin-top: 0; margin-bottom: 20px;">TrackingHub SSOT-Debugger (V5.4.3)</h2>
                     <table style="width: 100%; border-collapse: collapse; text-align: left;">
                         <thead>
                             <tr style="border-bottom: 2px solid #555;">
