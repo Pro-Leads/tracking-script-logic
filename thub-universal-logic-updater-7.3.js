@@ -531,7 +531,7 @@ function bootTrackingHub() {
         // Mapping-Tabelle für Drittanbieter-Parameter
         const linkParameterMapping = {
             'digistore24.com': 'ds24tr',
-            'ablify.com': 'utm_term' // Ersetze dies durch den korrekten ablify Parameter, falls abweichend
+            'ablefy.com': 'utm_term'
         };
 
         ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
