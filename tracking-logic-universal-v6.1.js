@@ -1,4 +1,4 @@
-// --- V6.1_EXTERNAL_THUB_SMART_ROUTING_MASTER ---
+// --- V6.2_HYBRID_SMART_ROUTING_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -10,7 +10,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.4.4). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V6.2). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -30,8 +30,7 @@ function bootTrackingHub() {
             const now = new Date();
             const item = { value: value, expiry: now.getTime() + (minutes * 60 * 1000) };
             localStorage.setItem(key, JSON.stringify(item));
-        } catch(e) {
-        }
+        } catch(e) {}
     }
 
     function getStorageWithExpiry(key) {
@@ -73,7 +72,6 @@ function bootTrackingHub() {
     function setCookie(name, value, days) {
         const d = new Date(); 
         d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
-        
         let domainString = "";
         const host = window.location.hostname;
         
@@ -81,7 +79,6 @@ function bootTrackingHub() {
             const rootDomain = host.split('.').slice(-2).join('.');
             domainString = `;domain=.${rootDomain}`;
         }
-        
         document.cookie = `${name}=${value};expires=${d.toUTCString()}${domainString};path=/;SameSite=Lax;Secure`;
     }
 
@@ -153,9 +150,6 @@ function bootTrackingHub() {
     thubData.referrer = _thub_frozenReferrer;
 
     setTimeout(function() {
-        
-        console.log("TrackingHub Debug: 1500ms abgelaufen. Lese Meta-Cookies aus und starte Injektion.");
-        
         thubData.fbp = getCookie('_fbp') || "";
         
         const existingFbc = getCookie('_fbc');
@@ -172,14 +166,105 @@ function bootTrackingHub() {
         }
 
         const config = window.TrackingHubLeadConfig || {};
+        config.userDataFields = config.userDataFields || {};
+        config.trackingfields = config.trackingfields || {};
 
-        if (!config.trackingfields) {
-            console.error("TrackingHub Debug: Abbruch! Konfiguration nicht gefunden oder unvollständig.");
-            return;
+        const currentPath = _thub_frozenPathname;
+
+        function evaluateCurrentPageEvents(path) {
+            const events = [
+                { name: 'generate_lead', configStr: config.cLead },
+                { name: 'schedule', configStr: config.cSchedule },
+                { name: 'purchase', configStr: config.cPurchase }
+            ];
+            let matchedFormEvent = null;
+            let matchedTypEvent = null;
+
+            events.forEach(ev => {
+                if (!ev.configStr) return;
+                const routes = ev.configStr.split(',').map(p => p.trim());
+                routes.forEach(route => {
+                    if (route === "") return;
+                    let isTyp = route.startsWith('typ:/');
+                    let isForm = route.startsWith('form:/');
+                    let cleanPath = route;
+                    if (isTyp) cleanPath = route.substring(5);
+                    else if (isForm) cleanPath = route.substring(6);
+                    else { cleanPath = route; isForm = true; } 
+                    
+                    if (cleanPath !== "" && path.includes(cleanPath)) {
+                        if (isTyp) matchedTypEvent = ev.name;
+                        if (isForm) matchedFormEvent = ev.name;
+                    }
+                });
+            });
+            return { matchedFormEvent, matchedTypEvent };
         }
 
-        config.userDataFields = config.userDataFields || {};
-        const currentPath = _thub_frozenPathname;
+        const pageEvents = evaluateCurrentPageEvents(currentPath);
+
+        function initLiveDebugger() {
+            if (urlParams.get('thub-check-value') !== 'true') return;
+
+            function getLiveFieldValue(selectorString) {
+                if (!selectorString) return "nicht konfiguriert";
+                const selectors = selectorString.split(',').map(s => s.trim());
+                
+                for (let s of selectors) {
+                    if (!s) continue;
+                    try { 
+                        const fields = document.querySelectorAll(s); 
+                        for (let i = 0; i < fields.length; i++) {
+                            let val = fields[i].value || fields[i].getAttribute('value');
+                            if (val && val.trim() !== "") return val.trim();
+                        }
+                    } catch(e) {}
+                }
+                return "nicht gefunden/leer";
+            }
+
+            function renderConsoleTable() {
+                let matchedEventNameForDebug = "Kein Event definiert";
+                if (pageEvents && pageEvents.matchedFormEvent && pageEvents.matchedTypEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedFormEvent + " (Form & TYP Konflikt)";
+                } else if (pageEvents && pageEvents.matchedFormEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedFormEvent;
+                } else if (pageEvents && pageEvents.matchedTypEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedTypEvent;
+                }
+
+                const debugData = {
+                    "Erkanntes Event": { Kategorie: "Routing", Wert: matchedEventNameForDebug },
+                    "Lead ID": { Kategorie: "ID", Wert: thubData.lead_id || "nicht gesetzt" },
+                    "gclid": { Kategorie: "Klick-IDs", Wert: thubData.gclid || "nicht gesetzt" },
+                    "wbraid": { Kategorie: "Klick-IDs", Wert: thubData.wbraid || "nicht gesetzt" },
+                    "gbraid": { Kategorie: "Klick-IDs", Wert: thubData.gbraid || "nicht gesetzt" },
+                    "fbclid": { Kategorie: "Klick-IDs", Wert: thubData.fbclid || "nicht gesetzt" },
+                    "utm_source": { Kategorie: "UTM-Parameter", Wert: thubData.utm_source || "nicht gesetzt" },
+                    "utm_medium": { Kategorie: "UTM-Parameter", Wert: thubData.utm_medium || "nicht gesetzt" },
+                    "utm_campaign": { Kategorie: "UTM-Parameter", Wert: thubData.utm_campaign || "nicht gesetzt" },
+                    "utm_content": { Kategorie: "UTM-Parameter", Wert: thubData.utm_content || "nicht gesetzt" },
+                    "thub_ad_id": { Kategorie: "Ad/UTM-Parameter", Wert: thubData.thub_ad_id || "nicht gesetzt" },
+                    "_fbc": { Kategorie: "Cookies", Wert: thubData.fbc || "nicht gesetzt" },
+                    "_fbp": { Kategorie: "Cookies", Wert: thubData.fbp || "nicht gesetzt" },
+                    "E-Mail (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.email) },
+                    "Vorname (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.firstName) }
+                };
+
+                console.log("%c🔥 TrackingHub V6.2 (Hybrid) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.table(debugData);
+            }
+
+            renderConsoleTable();
+            document.addEventListener('click', () => setTimeout(renderConsoleTable, 600)); 
+        }
+
+        initLiveDebugger();
+
+        if (Object.keys(config.trackingfields).length === 0) {
+            console.error("TrackingHub Debug: Abbruch der Injection! Konfiguration (trackingfields) nicht gefunden.");
+            return;
+        }
 
         function safeSetValue(element, value) {
             if (element && value && element.value !== value) {
@@ -215,41 +300,6 @@ function bootTrackingHub() {
             }
         }
 
-        function evaluateCurrentPageEvents(path) {
-            const events = [
-                { name: 'generate_lead', configStr: config.cLead },
-                { name: 'schedule', configStr: config.cSchedule },
-                { name: 'purchase', configStr: config.cPurchase }
-            ];
-            
-            let matchedFormEvent = null;
-            let matchedTypEvent = null;
-
-            events.forEach(ev => {
-                if (!ev.configStr) return;
-                const routes = ev.configStr.split(',').map(p => p.trim());
-                routes.forEach(route => {
-                    if (route === "") return;
-                    let isTyp = route.startsWith('typ:/');
-                    let isForm = route.startsWith('form:/');
-                    
-                    let cleanPath = route;
-                    if (isTyp) cleanPath = route.substring(5);
-                    else if (isForm) cleanPath = route.substring(6);
-                    else { cleanPath = route; isForm = true; } 
-                    
-                    if (cleanPath !== "" && path.includes(cleanPath)) {
-                        if (isTyp) matchedTypEvent = ev.name;
-                        if (isForm) matchedFormEvent = ev.name;
-                    }
-                });
-            });
-
-            return { matchedFormEvent, matchedTypEvent };
-        }
-
-        const pageEvents = evaluateCurrentPageEvents(currentPath);
-
         function isPathMatchingSimple(configString, path) {
             if (!configString) return false;
             const paths = configString.split(',').map(p => p.trim());
@@ -266,20 +316,12 @@ function bootTrackingHub() {
 
         if (!excludePageView) {
             const basePayload = {
-                'event': 'page_view', 
-                'event_name': 'page_view', 
-                'event_time': Math.floor(Date.now() / 1000), 
-                'action_source': 'website',
-                'event_id': generateUUID(), 
-                'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                'th_tracking_data_lead_id': thubData.lead_id,
-                'th_tracking_data_user_agent': navigator.userAgent,
-                'th_tracking_data_page_url': thubData.page_url,
-                'th_tracking_data_fbc': thubData.fbc,
-                'th_tracking_data_fbp': thubData.fbp,
-                'th_tracking_data_gclid': thubData.gclid,
-                'th_tracking_data_wbraid': thubData.wbraid,
-                'th_tracking_data_gbraid': thubData.gbraid,
+                'event': 'page_view', 'event_name': 'page_view', 'event_time': Math.floor(Date.now() / 1000), 'action_source': 'website',
+                'event_id': generateUUID(), 'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                'th_tracking_data_lead_id': thubData.lead_id, 'th_tracking_data_user_agent': navigator.userAgent,
+                'th_tracking_data_page_url': thubData.page_url, 'th_tracking_data_fbc': thubData.fbc,
+                'th_tracking_data_fbp': thubData.fbp, 'th_tracking_data_gclid': thubData.gclid,
+                'th_tracking_data_wbraid': thubData.wbraid, 'th_tracking_data_gbraid': thubData.gbraid,
                 'th_tracking_data_thub_ad_id': thubData.thub_ad_id
             };
             pushOrFetch(basePayload);
@@ -292,30 +334,17 @@ function bootTrackingHub() {
             if (!hasFired) {
                 const tempData = getAndClearTempUserData();
                 const typPayload = {
-                    'event': eventName, 
-                    'event_name': eventName, 
-                    'event_time': Math.floor(Date.now() / 1000), 
-                    'action_source': 'website',
-                    'event_id': generateUUID(), 
-                    'th_user_data_email_address': tempData.email || "",
-                    'th_user_data_phone_number': tempData.phone || "",
-                    'th_user_data_first_name': tempData.firstName || "",
-                    'th_user_data_last_name': tempData.lastName || "",
-                    'th_user_data_city': tempData.city || "",
-                    'th_user_data_postal_code': tempData.postalCode || "",
-                    'th_user_data_country': tempData.country || "",
-                    'th_tracking_data_funnel': tempData.funnel || "", 
-                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                    'th_tracking_data_utm_source': thubData.utm_source,
-                    'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
-                    'th_tracking_data_lead_id': thubData.lead_id,
-                    'th_tracking_data_user_agent': navigator.userAgent,
-                    'th_tracking_data_page_url': thubData.page_url,
-                    'th_tracking_data_fbc': thubData.fbc,
-                    'th_tracking_data_fbp': thubData.fbp,
-                    'th_tracking_data_gclid': thubData.gclid,
-                    'th_tracking_data_wbraid': thubData.wbraid,
-                    'th_tracking_data_gbraid': thubData.gbraid
+                    'event': eventName, 'event_name': eventName, 'event_time': Math.floor(Date.now() / 1000), 'action_source': 'website',
+                    'event_id': generateUUID(), 'th_user_data_email_address': tempData.email || "",
+                    'th_user_data_phone_number': tempData.phone || "", 'th_user_data_first_name': tempData.firstName || "",
+                    'th_user_data_last_name': tempData.lastName || "", 'th_user_data_city': tempData.city || "",
+                    'th_user_data_postal_code': tempData.postalCode || "", 'th_user_data_country': tempData.country || "",
+                    'th_tracking_data_funnel': tempData.funnel || "", 'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                    'th_tracking_data_utm_source': thubData.utm_source, 'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
+                    'th_tracking_data_lead_id': thubData.lead_id, 'th_tracking_data_user_agent': navigator.userAgent,
+                    'th_tracking_data_page_url': thubData.page_url, 'th_tracking_data_fbc': thubData.fbc,
+                    'th_tracking_data_fbp': thubData.fbp, 'th_tracking_data_gclid': thubData.gclid,
+                    'th_tracking_data_wbraid': thubData.wbraid, 'th_tracking_data_gbraid': thubData.gbraid
                 };
                 pushOrFetch(typPayload);
                 sessionStorage.setItem('thub_fired_' + eventName, 'true'); 
@@ -323,20 +352,17 @@ function bootTrackingHub() {
         }
 
         function fillAllFields() {
-            function fillMultiple(selector, value) {
-                if (!selector || !value) return;
-                let elements = [];
-                try { 
-                    elements = document.querySelectorAll(selector); 
-                } catch(e) {}
+            function fillMultiple(selectorString, value) {
+                if (!selectorString || !value) return;
+                const selectors = selectorString.split(',').map(s => s.trim());
                 
-                if (elements.length === 0) {
+                selectors.forEach(s => {
+                    if (!s) return;
                     try { 
-                        elements = document.querySelectorAll('[id="' + selector + '"]'); 
+                        const elements = document.querySelectorAll(s); 
+                        elements.forEach(el => safeSetValue(el, value));
                     } catch(e) {}
-                }
-                
-                elements.forEach(el => safeSetValue(el, value));
+                });
             }
 
             if (config.trackingfields.lead_id) fillMultiple(config.trackingfields.lead_id, thubData.lead_id);
@@ -369,20 +395,18 @@ function bootTrackingHub() {
         });
 
         function extractUserDataFromForm(form) {
-            function getSafeValue(selector) {
-                if (!selector) return "";
-                let field = null;
-                try { 
-                    field = form.querySelector(selector); 
-                } catch(e) {}
+            function getSafeValue(selectorString) {
+                if (!selectorString) return "";
+                const selectors = selectorString.split(',').map(s => s.trim());
                 
-                if (!field) {
+                for (let s of selectors) {
+                    if (!s) continue;
                     try { 
-                        field = form.querySelector('[id="' + selector + '"]'); 
+                        const field = form.querySelector(s); 
+                        if (field && field.value) return field.value;
                     } catch(e) {}
                 }
-                
-                return field ? field.value : "";
+                return "";
             }
             return {
                 email: getSafeValue(config.userDataFields.email),
@@ -406,32 +430,18 @@ function bootTrackingHub() {
             if (pageEvents.matchedFormEvent) {
                 const eventName = pageEvents.matchedFormEvent;
                 const payload = {
-                    'event': eventName, 
-                    'event_name': eventName, 
-                    'event_time': Math.floor(Date.now() / 1000), 
-                    'action_source': 'website',
-                    'event_id': generateUUID(), 
-                    'th_user_data_email_address': userData.email,
-                    'th_user_data_phone_number': userData.phone,
-                    'th_user_data_first_name': userData.firstName,
-                    'th_user_data_last_name': userData.lastName,
-                    'th_user_data_city': userData.city,
-                    'th_user_data_postal_code': userData.postalCode,
-                    'th_user_data_country': userData.country,
-                    'th_tracking_data_funnel': userData.funnel, 
-                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                    'th_tracking_data_utm_source': thubData.utm_source,
-                    'th_tracking_data_thub_ad_id': thubData.thub_ad_id,
-                    'th_tracking_data_lead_id': thubData.lead_id,
-                    'th_tracking_data_user_agent': navigator.userAgent,
-                    'th_tracking_data_page_url': thubData.page_url,
-                    'th_tracking_data_fbc': thubData.fbc,
-                    'th_tracking_data_fbp': thubData.fbp,
-                    'th_tracking_data_gclid': thubData.gclid,
-                    'th_tracking_data_wbraid': thubData.wbraid,
+                    'event': eventName, 'event_name': eventName, 'event_time': Math.floor(Date.now() / 1000), 'action_source': 'website',
+                    'event_id': generateUUID(), 'th_user_data_email_address': userData.email, 'th_user_data_phone_number': userData.phone,
+                    'th_user_data_first_name': userData.firstName, 'th_user_data_last_name': userData.lastName,
+                    'th_user_data_city': userData.city, 'th_user_data_postal_code': userData.postalCode,
+                    'th_user_data_country': userData.country, 'th_tracking_data_funnel': userData.funnel, 
+                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000), 'th_tracking_data_utm_source': thubData.utm_source,
+                    'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 'th_tracking_data_lead_id': thubData.lead_id,
+                    'th_tracking_data_user_agent': navigator.userAgent, 'th_tracking_data_page_url': thubData.page_url,
+                    'th_tracking_data_fbc': thubData.fbc, 'th_tracking_data_fbp': thubData.fbp,
+                    'th_tracking_data_gclid': thubData.gclid, 'th_tracking_data_wbraid': thubData.wbraid,
                     'th_tracking_data_gbraid': thubData.gbraid
                 };
-
                 pushOrFetch(payload);
                 sessionStorage.setItem('thub_fired_' + eventName, 'true'); 
             } else {
@@ -465,68 +475,6 @@ function bootTrackingHub() {
             }, 200);
         }, true);
 
-        function initLiveDebugger() {
-            if (urlParams.get('thub-check-value') !== 'true') return;
-
-            function getLiveFieldValue(selector) {
-                if (!selector) return "nicht gesetzt";
-                let fields = [];
-                try { 
-                    fields = document.querySelectorAll(selector); 
-                } catch(e) {}
-                
-                if (fields.length === 0) {
-                    try { 
-                        fields = document.querySelectorAll('[id="' + selector + '"]'); 
-                    } catch(e) {}
-                }
-                
-                for (let i = 0; i < fields.length; i++) {
-                    let field = fields[i];
-                    let val = field.value || field.getAttribute('value');
-                    if (val && val.trim() !== "") return val.trim();
-                }
-                return "nicht gesetzt";
-            }
-
-            function renderConsoleTable() {
-                let matchedEventNameForDebug = "Kein Event definiert";
-                if (pageEvents.matchedFormEvent && pageEvents.matchedTypEvent) {
-                    matchedEventNameForDebug = pageEvents.matchedFormEvent + " (Form & TYP Konflikt)";
-                } else if (pageEvents.matchedFormEvent) {
-                    matchedEventNameForDebug = pageEvents.matchedFormEvent;
-                } else if (pageEvents.matchedTypEvent) {
-                    matchedEventNameForDebug = pageEvents.matchedTypEvent;
-                }
-
-                const debugData = {
-                    "Erkanntes Event": { Kategorie: "Routing", Wert: matchedEventNameForDebug },
-                    "Lead ID": { Kategorie: "ID", Wert: thubData.lead_id || "nicht gesetzt" },
-                    "gclid": { Kategorie: "Klick-IDs", Wert: thubData.gclid || "nicht gesetzt" },
-                    "wbraid": { Kategorie: "Klick-IDs", Wert: thubData.wbraid || "nicht gesetzt" },
-                    "gbraid": { Kategorie: "Klick-IDs", Wert: thubData.gbraid || "nicht gesetzt" },
-                    "fbclid": { Kategorie: "Klick-IDs", Wert: thubData.fbclid || "nicht gesetzt" },
-                    "utm_source": { Kategorie: "UTM-Parameter", Wert: thubData.utm_source || "nicht gesetzt" },
-                    "utm_medium": { Kategorie: "UTM-Parameter", Wert: thubData.utm_medium || "nicht gesetzt" },
-                    "utm_campaign": { Kategorie: "UTM-Parameter", Wert: thubData.utm_campaign || "nicht gesetzt" },
-                    "utm_content": { Kategorie: "UTM-Parameter", Wert: thubData.utm_content || "nicht gesetzt" },
-                    "thub_ad_id": { Kategorie: "Ad/UTM-Parameter", Wert: thubData.thub_ad_id || "nicht gesetzt" },
-                    "_fbc": { Kategorie: "Cookies", Wert: thubData.fbc || "nicht gesetzt" },
-                    "_fbp": { Kategorie: "Cookies", Wert: thubData.fbp || "nicht gesetzt" },
-                    "E-Mail (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config.userDataFields.email) },
-                    "Vorname (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config.userDataFields.firstName) }
-                };
-
-                console.log("%c🔥 TrackingHub SSOT-Debugger (V5.4.4)", "color: #ff9800; font-size: 16px; font-weight: bold;");
-                console.table(debugData);
-            }
-
-            renderConsoleTable();
-            document.addEventListener('click', () => setTimeout(renderConsoleTable, 600)); 
-        }
-
-        initLiveDebugger();
-
         function initFetchCheckWarning() {
             if (urlParams.get('fetch_check') !== 'true') return;
             const warnContainer = document.createElement('div');
@@ -535,7 +483,6 @@ function bootTrackingHub() {
             warnContainer.innerHTML = '⚠️ ACHTUNG: Fetch-Testmodus aktiv (fetch_check=true). Das reguläre GTM-Tracking ist blockiert und die Daten werden als direktes Fallback an den Server gesendet.';
             document.body.appendChild(warnContainer);
         }
-
         initFetchCheckWarning();
 
     }, 1500);
