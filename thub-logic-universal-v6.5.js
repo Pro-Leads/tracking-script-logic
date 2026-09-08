@@ -1,4 +1,4 @@
-// --- V5.4_HYBRID_CONSOLE_DEBUG_MASTER ---
+// --- V6.5 ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
