@@ -1,4 +1,4 @@
-// --- V6.9_UNIVERSAL_LIVE_MASTER (incl. Link Updater) ---
+// --- V7.2_UNIVERSAL_PREEMPTIVE_LINK_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -527,20 +527,22 @@ function bootTrackingHub() {
             }, 200);
         }, true);
 
-        // --- LINK UPDATER ENGINE ---
-        document.addEventListener("click", function(event) {
-            try {
-                const link = event.target.closest('a[href*="calendly.com"], a[href*="typeform.com"], a[href*="digistore24.com"]');
-                if (link && thubData.lead_id) {
-                    let url = new URL(link.href);
-                    let paramName = link.href.includes("digistore24.com") ? "ds24tr" : "utm_term";
-                    if (url.searchParams.get(paramName) !== thubData.lead_id) {
-                        url.searchParams.set(paramName, thubData.lead_id);
-                        link.href = url.toString();
+        // --- PREEMPTIVE LINK UPDATER ENGINE ---
+        ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
+            document.addEventListener(evt, function(event) {
+                try {
+                    const link = event.target.closest('a[href*="calendly.com"], a[href*="typeform.com"], a[href*="digistore24.com"]');
+                    if (link && thubData.lead_id) {
+                        let url = new URL(link.href);
+                        let paramName = link.href.includes("digistore24.com") ? "ds24tr" : "utm_term";
+                        if (url.searchParams.get(paramName) !== thubData.lead_id) {
+                            url.searchParams.set(paramName, thubData.lead_id);
+                            link.href = url.toString();
+                        }
                     }
-                }
-            } catch (e) {}
-        }, true);
+                } catch (e) {}
+            }, true);
+        });
 
     }, 1500);
 }
