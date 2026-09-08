@@ -1,4 +1,4 @@
-// --- V7.2_UNIVERSAL_PREEMPTIVE_LINK_MASTER ---
+// --- V7.3_UNIVERSAL_DYNAMIC_LINK_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -528,13 +528,32 @@ function bootTrackingHub() {
         }, true);
 
         // --- PREEMPTIVE LINK UPDATER ENGINE ---
+        // Mapping-Tabelle für Drittanbieter-Parameter
+        const linkParameterMapping = {
+            'digistore24.com': 'ds24tr',
+            'ablify.com': 'utm_term' // Ersetze dies durch den korrekten ablify Parameter, falls abweichend
+        };
+
         ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
             document.addEventListener(evt, function(event) {
                 try {
-                    const link = event.target.closest('a[href*="calendly.com"], a[href*="typeform.com"], a[href*="digistore24.com"]');
-                    if (link && thubData.lead_id) {
-                        let url = new URL(link.href);
-                        let paramName = link.href.includes("digistore24.com") ? "ds24tr" : "utm_term";
+                    const link = event.target.closest('a[href]');
+                    if (!link || !thubData.lead_id) return;
+                    
+                    let url = new URL(link.href, window.location.origin);
+                    
+                    // Nur modifizieren, wenn das Ziel eine völlig andere Domain ist
+                    if (url.hostname && url.hostname !== window.location.hostname) {
+                        let paramName = 'utm_term'; // Der globale Fallback
+                        
+                        for (const domain in linkParameterMapping) {
+                            if (url.hostname.includes(domain)) {
+                                paramName = linkParameterMapping[domain];
+                                break;
+                            }
+                        }
+
+                        // URLSearchParams regelt die Syntax (? oder &) nativ und überschreibt Duplikate
                         if (url.searchParams.get(paramName) !== thubData.lead_id) {
                             url.searchParams.set(paramName, thubData.lead_id);
                             link.href = url.toString();
