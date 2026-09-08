@@ -1,4 +1,4 @@
-// --- V7.3_UNIVERSAL_DYNAMIC_LINK_MASTER ---
+// --- V7.4_UNIVERSAL_EMAIL_GATEKEEPER_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -357,33 +357,37 @@ function bootTrackingHub() {
         if (pageEvents.matchedTypEvent) {
             const eventName = pageEvents.matchedTypEvent;
             const tempData = getTempUserData();
-            const typPayload = {
-                'event': eventName, 
-                'event_name': eventName, 
-                'event_time': Math.floor(Date.now() / 1000), 
-                'action_source': 'website',
-                'event_id': generateUUID(), 
-                'th_user_data_email_address': tempData.email || "",
-                'th_user_data_phone_number': tempData.phone || "",
-                'th_user_data_first_name': tempData.firstName || "",
-                'th_user_data_last_name': tempData.lastName || "",
-                'th_user_data_city': tempData.city || "",
-                'th_user_data_postal_code': tempData.postalCode || "",
-                'th_user_data_country': tempData.country || "",
-                'th_tracking_data_funnel': tempData.funnel || "", 
-                'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                'th_tracking_data_utm_source': thubData.utm_source,
-                'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
-                'th_tracking_data_lead_id': thubData.lead_id,
-                'th_tracking_data_user_agent': navigator.userAgent,
-                'th_tracking_data_page_url': thubData.page_url,
-                'th_tracking_data_fbc': thubData.fbc,
-                'th_tracking_data_fbp': thubData.fbp,
-                'th_tracking_data_gclid': thubData.gclid,
-                'th_tracking_data_wbraid': thubData.wbraid,
-                'th_tracking_data_gbraid': thubData.gbraid
-            };
-            pushOrFetch(typPayload);
+            
+            // Neuer Gatekeeper: Blockiert leere Payloads beim Seiten-Reload
+            if (tempData.email && tempData.email.trim() !== "") {
+                const typPayload = {
+                    'event': eventName, 
+                    'event_name': eventName, 
+                    'event_time': Math.floor(Date.now() / 1000), 
+                    'action_source': 'website',
+                    'event_id': generateUUID(), 
+                    'th_user_data_email_address': tempData.email,
+                    'th_user_data_phone_number': tempData.phone || "",
+                    'th_user_data_first_name': tempData.firstName || "",
+                    'th_user_data_last_name': tempData.lastName || "",
+                    'th_user_data_city': tempData.city || "",
+                    'th_user_data_postal_code': tempData.postalCode || "",
+                    'th_user_data_country': tempData.country || "",
+                    'th_tracking_data_funnel': tempData.funnel || "", 
+                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                    'th_tracking_data_utm_source': thubData.utm_source,
+                    'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
+                    'th_tracking_data_lead_id': thubData.lead_id,
+                    'th_tracking_data_user_agent': navigator.userAgent,
+                    'th_tracking_data_page_url': thubData.page_url,
+                    'th_tracking_data_fbc': thubData.fbc,
+                    'th_tracking_data_fbp': thubData.fbp,
+                    'th_tracking_data_gclid': thubData.gclid,
+                    'th_tracking_data_wbraid': thubData.wbraid,
+                    'th_tracking_data_gbraid': thubData.gbraid
+                };
+                pushOrFetch(typPayload);
+            }
         }
 
         function fillAllFields() {
