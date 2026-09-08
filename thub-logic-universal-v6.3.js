@@ -1,4 +1,4 @@
-// --- V6.2_HYBRID_SMART_ROUTING_MASTER ---
+// --- V6.3_HYBRID_AUTARK_SMART_ROUTING_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -10,7 +10,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V6.2). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V6.3). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -251,7 +251,7 @@ function bootTrackingHub() {
                     "Vorname (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.firstName) }
                 };
 
-                console.log("%c🔥 TrackingHub V6.2 (Hybrid) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V6.3 (Autark Hybrid) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
@@ -260,11 +260,6 @@ function bootTrackingHub() {
         }
 
         initLiveDebugger();
-
-        if (Object.keys(config.trackingfields).length === 0) {
-            console.error("TrackingHub Debug: Abbruch der Injection! Konfiguration (trackingfields) nicht gefunden.");
-            return;
-        }
 
         function safeSetValue(element, value) {
             if (element && value && element.value !== value) {
