@@ -1,4 +1,4 @@
-// --- V6.6_UNIVERSAL_CACHE_MASTER ---
+// --- V6.7_UNIVERSAL_PERSISTENT_CACHE_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -10,7 +10,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V6.6 Universal Cache). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V6.7 Persistent Cache). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -174,10 +174,20 @@ function bootTrackingHub() {
 
         window.thub_live_cache = window.thub_live_cache || { email: "", phone: "", firstName: "", lastName: "", city: "", postalCode: "", country: "", funnel: "" };
 
+        function forcePersistCache() {
+            if ((window.thub_live_cache.email && window.thub_live_cache.email !== "") || 
+                (window.thub_live_cache.phone && window.thub_live_cache.phone !== "") || 
+                (window.thub_live_cache.firstName && window.thub_live_cache.firstName !== "")) {
+                saveTempUserData(window.thub_live_cache);
+            }
+        }
+
         function updateCacheFromElement(el) {
             if(!el || !el.value) return;
             const val = el.value.trim();
             if(val === "") return;
+
+            let cacheUpdated = false;
 
             for (const key in config.userDataFields) {
                 const selectors = config.userDataFields[key].split(',').map(s => s.trim());
@@ -186,7 +196,8 @@ function bootTrackingHub() {
                     try {
                         if (el.matches(s)) {
                             window.thub_live_cache[key] = val;
-                            return;
+                            cacheUpdated = true;
+                            break;
                         }
                     } catch(err) {}
                 }
@@ -198,11 +209,14 @@ function bootTrackingHub() {
                     try {
                         if (el.matches(s)) {
                             window.thub_live_cache.funnel = val;
-                            return;
+                            cacheUpdated = true;
+                            break;
                         }
                     } catch(err) {}
                 }
             }
+
+            if (cacheUpdated) forcePersistCache();
         }
 
         ['input', 'change', 'focusout'].forEach(evt => {
@@ -217,6 +231,7 @@ function bootTrackingHub() {
             const tag = e.target ? e.target.tagName : "";
             const type = e.target ? e.target.getAttribute('type') : "";
             if (tag === 'BUTTON' || (tag === 'INPUT' && (type === 'submit' || type === 'button')) || (e.target && e.target.closest && (e.target.closest('button') || e.target.closest('a')))) {
+                let cacheUpdated = false;
                 for (const key in config.userDataFields) {
                     const selectors = config.userDataFields[key].split(',').map(s => s.trim());
                     for (let s of selectors) {
@@ -226,11 +241,13 @@ function bootTrackingHub() {
                             fields.forEach(f => {
                                 if(f.value && f.value.trim() !== "") {
                                     window.thub_live_cache[key] = f.value.trim();
+                                    cacheUpdated = true;
                                 }
                             });
                         } catch(err) {}
                     }
                 }
+                if (cacheUpdated) forcePersistCache();
             }
         }, true);
 
@@ -356,7 +373,7 @@ function bootTrackingHub() {
                     "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V6.6 (Universal Cache) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V6.7 (Persistent Cache) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
