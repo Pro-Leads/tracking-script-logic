@@ -248,7 +248,8 @@ function bootTrackingHub() {
                     "_fbc": { Kategorie: "Cookies", Wert: thubData.fbc || "nicht gesetzt" },
                     "_fbp": { Kategorie: "Cookies", Wert: thubData.fbp || "nicht gesetzt" },
                     "E-Mail (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.email) },
-                    "Vorname (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.firstName) }
+                    "Vorname (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.firstName) },
+                    "Tel (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.phone) }
                 };
 
                 console.log("%c🔥 TrackingHub V6.3 (Autark Hybrid) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
