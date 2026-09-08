@@ -1,4 +1,4 @@
-// --- V6.3_HYBRID_AUTARK_SMART_ROUTING_MASTER ---
+// --- V6.4_HYBRID_AUTARK_GLOBAL_ROUTING_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -10,7 +10,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V6.3). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V6.4). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -252,7 +252,7 @@ function bootTrackingHub() {
                     "Tel (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V6.3 (Autark Hybrid) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V6.4 (Global Hybrid) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
@@ -398,7 +398,10 @@ function bootTrackingHub() {
                 for (let s of selectors) {
                     if (!s) continue;
                     try { 
-                        const field = form.querySelector(s); 
+                        let field = form.querySelector(s); 
+                        if (field && field.value) return field.value;
+                        
+                        field = document.querySelector(s);
                         if (field && field.value) return field.value;
                     } catch(e) {}
                 }
