@@ -1,4 +1,4 @@
-// --- V6.5 ---
+// --- V6.6_UNIVERSAL_CACHE_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -10,7 +10,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V5.4 Hybrid). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V6.6 Universal Cache). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -172,6 +172,68 @@ function bootTrackingHub() {
         config.userDataFields = config.userDataFields || {};
         config.trackingfields = config.trackingfields || {};
 
+        window.thub_live_cache = window.thub_live_cache || { email: "", phone: "", firstName: "", lastName: "", city: "", postalCode: "", country: "", funnel: "" };
+
+        function updateCacheFromElement(el) {
+            if(!el || !el.value) return;
+            const val = el.value.trim();
+            if(val === "") return;
+
+            for (const key in config.userDataFields) {
+                const selectors = config.userDataFields[key].split(',').map(s => s.trim());
+                for (let s of selectors) {
+                    if (!s) continue;
+                    try {
+                        if (el.matches(s)) {
+                            window.thub_live_cache[key] = val;
+                            return;
+                        }
+                    } catch(err) {}
+                }
+            }
+            if(config.trackingfields.funnel) {
+                const funnelSelectors = config.trackingfields.funnel.split(',').map(s => s.trim());
+                for (let s of funnelSelectors) {
+                    if (!s) continue;
+                    try {
+                        if (el.matches(s)) {
+                            window.thub_live_cache.funnel = val;
+                            return;
+                        }
+                    } catch(err) {}
+                }
+            }
+        }
+
+        ['input', 'change', 'focusout'].forEach(evt => {
+            document.addEventListener(evt, (e) => {
+                if(e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA')) {
+                    updateCacheFromElement(e.target);
+                }
+            }, true);
+        });
+
+        document.addEventListener('mousedown', (e) => {
+            const tag = e.target ? e.target.tagName : "";
+            const type = e.target ? e.target.getAttribute('type') : "";
+            if (tag === 'BUTTON' || (tag === 'INPUT' && (type === 'submit' || type === 'button')) || (e.target && e.target.closest && (e.target.closest('button') || e.target.closest('a')))) {
+                for (const key in config.userDataFields) {
+                    const selectors = config.userDataFields[key].split(',').map(s => s.trim());
+                    for (let s of selectors) {
+                        if (!s) continue;
+                        try {
+                            const fields = document.querySelectorAll(s);
+                            fields.forEach(f => {
+                                if(f.value && f.value.trim() !== "") {
+                                    window.thub_live_cache[key] = f.value.trim();
+                                }
+                            });
+                        } catch(err) {}
+                    }
+                }
+            }
+        }, true);
+
         const currentPath = _thub_frozenPathname;
 
         function safeSetValue(element, value) {
@@ -246,17 +308,19 @@ function bootTrackingHub() {
         function initLiveDebugger() {
             if (urlParams.get('thub-check-value') !== 'true') return;
 
-            function getLiveFieldValue(selectorString) {
+            function getLiveFieldValue(fieldKey, selectorString) {
+                if (window.thub_live_cache && window.thub_live_cache[fieldKey] && window.thub_live_cache[fieldKey] !== "") {
+                    return window.thub_live_cache[fieldKey] + " (Cache)";
+                }
                 if (!selectorString) return "nicht konfiguriert";
                 const selectors = selectorString.split(',').map(s => s.trim());
-                
                 for (let s of selectors) {
                     if (!s) continue;
                     try { 
                         const fields = document.querySelectorAll(s); 
                         for (let i = 0; i < fields.length; i++) {
                             let val = fields[i].value || fields[i].getAttribute('value');
-                            if (val && val.trim() !== "") return val.trim();
+                            if (val && val.trim() !== "") return val.trim() + " (Live)";
                         }
                     } catch(e) {}
                 }
@@ -287,17 +351,18 @@ function bootTrackingHub() {
                     "thub_ad_id": { Kategorie: "Ad/UTM-Parameter", Wert: thubData.thub_ad_id || "nicht gesetzt" },
                     "_fbc": { Kategorie: "Cookies", Wert: thubData.fbc || "nicht gesetzt" },
                     "_fbp": { Kategorie: "Cookies", Wert: thubData.fbp || "nicht gesetzt" },
-                    "E-Mail (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.email) },
-                    "Vorname (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.firstName) },
-                    "Tel (Live)": { Kategorie: "Formular", Wert: getLiveFieldValue(config?.userDataFields?.phone) }
+                    "E-Mail": { Kategorie: "Formular", Wert: getLiveFieldValue('email', config?.userDataFields?.email) },
+                    "Vorname": { Kategorie: "Formular", Wert: getLiveFieldValue('firstName', config?.userDataFields?.firstName) },
+                    "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V5.4 (Hybrid Core) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V6.6 (Universal Cache) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
             renderConsoleTable();
             document.addEventListener('click', () => setTimeout(renderConsoleTable, 600)); 
+            document.addEventListener('input', () => setTimeout(renderConsoleTable, 600)); 
         }
 
         initLiveDebugger();
@@ -417,30 +482,34 @@ function bootTrackingHub() {
         });
 
         function extractUserDataFromForm(form) {
-            function getSafeValue(selectorString) {
+            function getSafeValue(fieldKey, selectorString) {
+                if (window.thub_live_cache && window.thub_live_cache[fieldKey] && window.thub_live_cache[fieldKey] !== "") {
+                    return window.thub_live_cache[fieldKey];
+                }
+                
                 if (!selectorString) return "";
                 const selectors = selectorString.split(',').map(s => s.trim());
                 for (let s of selectors) {
                     if (!s) continue;
                     try { 
                         let field = form ? form.querySelector(s) : null;
-                        if (field && field.value) return field.value;
+                        if (field && field.value) return field.value.trim();
                         
                         field = document.querySelector(s);
-                        if (field && field.value) return field.value;
+                        if (field && field.value) return field.value.trim();
                     } catch(e) {}
                 }
                 return "";
             }
             return {
-                email: getSafeValue(config.userDataFields.email),
-                phone: getSafeValue(config.userDataFields.phone),
-                firstName: getSafeValue(config.userDataFields.firstName),
-                lastName: getSafeValue(config.userDataFields.lastName),
-                city: getSafeValue(config.userDataFields.city),
-                postalCode: getSafeValue(config.userDataFields.postalCode),
-                country: getSafeValue(config.userDataFields.country),
-                funnel: getSafeValue(config.trackingfields.funnel) 
+                email: getSafeValue('email', config.userDataFields.email),
+                phone: getSafeValue('phone', config.userDataFields.phone),
+                firstName: getSafeValue('firstName', config.userDataFields.firstName),
+                lastName: getSafeValue('lastName', config.userDataFields.lastName),
+                city: getSafeValue('city', config.userDataFields.city),
+                postalCode: getSafeValue('postalCode', config.userDataFields.postalCode),
+                country: getSafeValue('country', config.userDataFields.country),
+                funnel: getSafeValue('funnel', config.trackingfields.funnel) 
             };
         }
 
