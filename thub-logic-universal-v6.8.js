@@ -1,4 +1,4 @@
-// --- V6.7_UNIVERSAL_PERSISTENT_CACHE_MASTER ---
+// --- V6.8_UNIVERSAL_UNBLOCKED_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -10,7 +10,7 @@ function bootTrackingHub() {
     if (window.thub_initialized) return;
     window.thub_initialized = true;
 
-    console.log("TrackingHub Debug: Skript gebootet (V6.7 Persistent Cache). Greife auf eingefrorene globale Variablen zu.");
+    console.log("TrackingHub Debug: Skript gebootet (V6.8 Unblocked). Greife auf eingefrorene globale Variablen zu.");
 
     let searchString = _thub_frozenSearch;
     if (!searchString && _thub_frozenHash.includes('?')) {
@@ -94,12 +94,11 @@ function bootTrackingHub() {
         sessionStorage.setItem('thub_temp_userdata', JSON.stringify(item));
     }
 
-    function getAndClearTempUserData() {
+    function getTempUserData() {
         const str = sessionStorage.getItem('thub_temp_userdata');
         if (!str) return {};
         try {
             const item = JSON.parse(str);
-            sessionStorage.removeItem('thub_temp_userdata'); 
             if (Date.now() > item.expiry) return {};
             return item.data || {};
         } catch(e) {
@@ -373,7 +372,7 @@ function bootTrackingHub() {
                     "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V6.7 (Persistent Cache) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V6.8 (Unblocked) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
@@ -421,39 +420,34 @@ function bootTrackingHub() {
 
         if (pageEvents.matchedTypEvent) {
             const eventName = pageEvents.matchedTypEvent;
-            const hasFired = sessionStorage.getItem('thub_fired_' + eventName);
-            
-            if (!hasFired) {
-                const tempData = getAndClearTempUserData();
-                const typPayload = {
-                    'event': eventName, 
-                    'event_name': eventName, 
-                    'event_time': Math.floor(Date.now() / 1000), 
-                    'action_source': 'website',
-                    'event_id': generateUUID(), 
-                    'th_user_data_email_address': tempData.email || "",
-                    'th_user_data_phone_number': tempData.phone || "",
-                    'th_user_data_first_name': tempData.firstName || "",
-                    'th_user_data_last_name': tempData.lastName || "",
-                    'th_user_data_city': tempData.city || "",
-                    'th_user_data_postal_code': tempData.postalCode || "",
-                    'th_user_data_country': tempData.country || "",
-                    'th_tracking_data_funnel': tempData.funnel || "", 
-                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                    'th_tracking_data_utm_source': thubData.utm_source,
-                    'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
-                    'th_tracking_data_lead_id': thubData.lead_id,
-                    'th_tracking_data_user_agent': navigator.userAgent,
-                    'th_tracking_data_page_url': thubData.page_url,
-                    'th_tracking_data_fbc': thubData.fbc,
-                    'th_tracking_data_fbp': thubData.fbp,
-                    'th_tracking_data_gclid': thubData.gclid,
-                    'th_tracking_data_wbraid': thubData.wbraid,
-                    'th_tracking_data_gbraid': thubData.gbraid
-                };
-                pushOrFetch(typPayload);
-                sessionStorage.setItem('thub_fired_' + eventName, 'true'); 
-            }
+            const tempData = getTempUserData();
+            const typPayload = {
+                'event': eventName, 
+                'event_name': eventName, 
+                'event_time': Math.floor(Date.now() / 1000), 
+                'action_source': 'website',
+                'event_id': generateUUID(), 
+                'th_user_data_email_address': tempData.email || "",
+                'th_user_data_phone_number': tempData.phone || "",
+                'th_user_data_first_name': tempData.firstName || "",
+                'th_user_data_last_name': tempData.lastName || "",
+                'th_user_data_city': tempData.city || "",
+                'th_user_data_postal_code': tempData.postalCode || "",
+                'th_user_data_country': tempData.country || "",
+                'th_tracking_data_funnel': tempData.funnel || "", 
+                'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                'th_tracking_data_utm_source': thubData.utm_source,
+                'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
+                'th_tracking_data_lead_id': thubData.lead_id,
+                'th_tracking_data_user_agent': navigator.userAgent,
+                'th_tracking_data_page_url': thubData.page_url,
+                'th_tracking_data_fbc': thubData.fbc,
+                'th_tracking_data_fbp': thubData.fbp,
+                'th_tracking_data_gclid': thubData.gclid,
+                'th_tracking_data_wbraid': thubData.wbraid,
+                'th_tracking_data_gbraid': thubData.gbraid
+            };
+            pushOrFetch(typPayload);
         }
 
         function fillAllFields() {
@@ -566,7 +560,6 @@ function bootTrackingHub() {
                 };
 
                 pushOrFetch(payload);
-                sessionStorage.setItem('thub_fired_' + eventName, 'true'); 
             } else {
                 if ((userData.email && userData.email !== "") || (userData.phone && userData.phone !== "") || (userData.firstName && userData.firstName !== "")) {
                     saveTempUserData(userData);
