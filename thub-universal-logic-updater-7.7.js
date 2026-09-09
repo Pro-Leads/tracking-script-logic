@@ -1,4 +1,4 @@
-// --- V7.6_HYBRID_QUEUE_MASTER ---
+// --- V7.7_HYBRID_QUEUE_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -364,7 +364,16 @@ function bootTrackingHub() {
         }
 
         ['click', 'touchstart', 'visibilitychange'].forEach(evt => {
-            document.addEventListener(evt, flushQueueToGTM, { passive: true });
+            document.addEventListener(evt, (e) => {
+                if (evt === 'visibilitychange' && document.visibilityState === 'hidden') {
+                    const isGtmActive = (typeof window.google_tag_manager !== 'undefined' && Object.keys(window.google_tag_manager).length > 0);
+                    if (!isGtmActive && window.thub_payload_queue.length > 0) {
+                        triggerEmergencyFetch();
+                        return;
+                    }
+                }
+                flushQueueToGTM();
+            }, { passive: true });
         });
 
         let scanCount = 0;
@@ -408,6 +417,75 @@ function bootTrackingHub() {
         }
 
         const pageEvents = evaluateCurrentPageEvents(currentPath);
+
+        // --- DEBUGGER & WARNING ENGINE (REINTEGRIERT) ---
+        function initLiveDebugger() {
+            if (urlParams.get('thub-check-value') !== 'true') return;
+
+            function getLiveFieldValue(fieldKey, selectorString) {
+                if (window.thub_live_cache && window.thub_live_cache[fieldKey] && window.thub_live_cache[fieldKey] !== "") {
+                    return window.thub_live_cache[fieldKey] + " (Cache)";
+                }
+                if (!selectorString) return "nicht konfiguriert";
+                const selectors = selectorString.split(',').map(s => s.trim());
+                for (let s of selectors) {
+                    if (!s) continue;
+                    try { 
+                        const fields = document.querySelectorAll(s); 
+                        for (let i = 0; i < fields.length; i++) {
+                            let val = fields[i].value || fields[i].getAttribute('value');
+                            if (val && val.trim() !== "") return val.trim() + " (Live)";
+                        }
+                    } catch(e) {}
+                }
+                return "nicht gefunden/leer";
+            }
+
+            function renderConsoleTable() {
+                let matchedEventNameForDebug = "Kein Event definiert";
+                if (pageEvents && pageEvents.matchedFormEvent && pageEvents.matchedTypEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedFormEvent + " (Form & TYP Konflikt)";
+                } else if (pageEvents && pageEvents.matchedFormEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedFormEvent;
+                } else if (pageEvents && pageEvents.matchedTypEvent) {
+                    matchedEventNameForDebug = pageEvents.matchedTypEvent;
+                }
+
+                const debugData = {
+                    "Erkanntes Event": { Kategorie: "Routing", Wert: matchedEventNameForDebug },
+                    "Lead ID": { Kategorie: "ID", Wert: thubData.lead_id || "nicht gesetzt" },
+                    "gclid": { Kategorie: "Klick-IDs", Wert: thubData.gclid || "nicht gesetzt" },
+                    "wbraid": { Kategorie: "Klick-IDs", Wert: thubData.wbraid || "nicht gesetzt" },
+                    "gbraid": { Kategorie: "Klick-IDs", Wert: thubData.gbraid || "nicht gesetzt" },
+                    "fbclid": { Kategorie: "Klick-IDs", Wert: thubData.fbclid || "nicht gesetzt" },
+                    "utm_source": { Kategorie: "UTM-Parameter", Wert: thubData.utm_source || "nicht gesetzt" },
+                    "utm_medium": { Kategorie: "UTM-Parameter", Wert: thubData.utm_medium || "nicht gesetzt" },
+                    "utm_campaign": { Kategorie: "UTM-Parameter", Wert: thubData.utm_campaign || "nicht gesetzt" },
+                    "utm_content": { Kategorie: "UTM-Parameter", Wert: thubData.utm_content || "nicht gesetzt" },
+                    "thub_ad_id": { Kategorie: "Ad/UTM-Parameter", Wert: thubData.thub_ad_id || "nicht gesetzt" },
+                    "_fbc": { Kategorie: "Cookies", Wert: thubData.fbc || "nicht gesetzt" },
+                    "_fbp": { Kategorie: "Cookies", Wert: thubData.fbp || "nicht gesetzt" },
+                    "E-Mail": { Kategorie: "Formular", Wert: getLiveFieldValue('email', config?.userDataFields?.email) },
+                    "Vorname": { Kategorie: "Formular", Wert: getLiveFieldValue('firstName', config?.userDataFields?.firstName) },
+                    "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
+                };
+
+                console.log("%c🔥 TrackingHub V7.7 (Hybrid Queue) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.table(debugData);
+            }
+
+            renderConsoleTable();
+            document.addEventListener('click', () => setTimeout(renderConsoleTable, 600)); 
+            document.addEventListener('input', () => setTimeout(renderConsoleTable, 600)); 
+        }
+
+        function initFetchCheckWarning() {
+            if (urlParams.get('fetch_check') !== 'true') return;
+            console.warn('%c⚠️ ACHTUNG: Fetch-Testmodus aktiv (fetch_check=true). Das reguläre GTM-Tracking ist blockiert und die Daten werden als direktes Fallback an den Server gesendet.', 'color: #ffffff; background-color: #d32f2f; font-size: 14px; font-weight: bold; padding: 4px; border-radius: 2px;');
+        }
+
+        initLiveDebugger();
+        initFetchCheckWarning();
 
         function isPathMatchingSimple(configString, path) {
             if (!configString) return false;
