@@ -1,4 +1,4 @@
-// --- V7.5_UNIVERSAL_SUBDOMAIN_ROUTER_MASTER ---
+// --- V7.6_HYBRID_QUEUE_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -148,6 +148,54 @@ function bootTrackingHub() {
     thubData.page_url = _thub_frozenHref.split(/[?#]/)[0];
     thubData.referrer = _thub_frozenReferrer;
 
+    // --- PREEMPTIVE LINK UPDATER ENGINE (ENTKOPPELT FÜR SOFORTIGEN SCHUTZ) ---
+    const linkParameterMapping = {
+        'digistore24.com': 'ds24tr',
+        'ablefy.com': 'utm_term'
+    };
+
+    function getRootDomain(hostname) {
+        const parts = hostname.split('.');
+        if (parts.length <= 2) return hostname;
+        return parts.slice(-2).join('.');
+    }
+
+    ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
+        document.addEventListener(evt, function(event) {
+            try {
+                const link = event.target.closest('a[href]');
+                if (!link || !thubData.lead_id) return;
+                
+                let url = new URL(link.href, window.location.origin);
+                const currentHost = window.location.hostname;
+                const targetHost = url.hostname;
+                
+                if (targetHost && targetHost !== currentHost) {
+                    const currentRoot = getRootDomain(currentHost);
+                    const targetRoot = getRootDomain(targetHost);
+                    let paramName = 'utm_term'; 
+                    
+                    if (currentRoot === targetRoot) {
+                        paramName = 'thub';
+                    } else {
+                        for (const domain in linkParameterMapping) {
+                            if (targetHost.includes(domain)) {
+                                paramName = linkParameterMapping[domain];
+                                break;
+                            }
+                        }
+                    }
+
+                    if (url.searchParams.get(paramName) !== thubData.lead_id) {
+                        url.searchParams.set(paramName, thubData.lead_id);
+                        link.href = url.toString();
+                    }
+                }
+            } catch (e) {}
+        }, true);
+    });
+
+    // --- VERKÜRZTES TIMEOUT: 500ms ---
     setTimeout(function() {
         
         thubData.fbp = getCookie('_fbp') || "";
@@ -259,6 +307,39 @@ function bootTrackingHub() {
             }
         }
 
+        // --- HYBRID QUEUE SYSTEM ---
+        window.thub_payload_queue = window.thub_payload_queue || [];
+        let thub_fallback_timer = null;
+        let queue_flushed = false;
+
+        function triggerEmergencyFetch() {
+            if (queue_flushed) return;
+            while(window.thub_payload_queue.length > 0) {
+                let payload = window.thub_payload_queue.shift();
+                if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
+                    if (navigator.sendBeacon) {
+                        navigator.sendBeacon(config.serverEndpoint, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+                    } else {
+                        fetch(config.serverEndpoint, { method: 'POST', keepalive: true, credentials: 'include', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }).catch(function(err) {});
+                    }
+                }
+            }
+            queue_flushed = true;
+        }
+
+        function flushQueueToGTM() {
+            if (window.thub_payload_queue.length === 0) return;
+            const isGtmActive = (typeof window.google_tag_manager !== 'undefined' && Object.keys(window.google_tag_manager).length > 0);
+            if (isGtmActive) {
+                window.dataLayer = window.dataLayer || [];
+                while(window.thub_payload_queue.length > 0) {
+                    window.dataLayer.push(window.thub_payload_queue.shift());
+                }
+                if (thub_fallback_timer) clearTimeout(thub_fallback_timer);
+                queue_flushed = true;
+            }
+        }
+
         function pushOrFetch(payload) {
             const isTestMode = (urlParams.get('fetch_check') === 'true');
             const isGtmActive = (typeof window.google_tag_manager !== 'undefined' && Object.keys(window.google_tag_manager).length > 0);
@@ -266,23 +347,32 @@ function bootTrackingHub() {
             if (isGtmActive && !isTestMode) {
                 window.dataLayer = window.dataLayer || [];
                 window.dataLayer.push(payload);
-            } else {
+            } else if (isTestMode) {
                 if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
                     if (navigator.sendBeacon) {
-                        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-                        navigator.sendBeacon(config.serverEndpoint, blob);
+                        navigator.sendBeacon(config.serverEndpoint, new Blob([JSON.stringify(payload)], { type: 'application/json' }));
                     } else {
-                        fetch(config.serverEndpoint, {
-                            method: 'POST',
-                            keepalive: true,
-                            credentials: 'include', 
-                            headers: { 'Content-Type': 'text/plain' },
-                            body: JSON.stringify(payload)
-                        }).catch(function(err) {});
+                        fetch(config.serverEndpoint, { method: 'POST', keepalive: true, credentials: 'include', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) }).catch(function(err) {});
                     }
+                }
+            } else {
+                window.thub_payload_queue.push(payload);
+                if (!thub_fallback_timer) {
+                    thub_fallback_timer = setTimeout(triggerEmergencyFetch, 6000);
                 }
             }
         }
+
+        ['click', 'touchstart', 'visibilitychange'].forEach(evt => {
+            document.addEventListener(evt, flushQueueToGTM, { passive: true });
+        });
+
+        let scanCount = 0;
+        let bgScanner = setInterval(() => {
+            scanCount++;
+            flushQueueToGTM();
+            if (scanCount >= 12 || window.thub_payload_queue.length === 0) clearInterval(bgScanner);
+        }, 500);
 
         function evaluateCurrentPageEvents(path) {
             const events = [
@@ -391,7 +481,7 @@ function bootTrackingHub() {
 
         function fillAllFields() {
             function fillMultiple(selectorString, value) {
-                if (!selectorString || !value) return;
+                if (!selectorString || value == null) return;
                 const selectors = selectorString.split(',').map(s => s.trim());
                 selectors.forEach(s => {
                     if (!s) return;
@@ -530,54 +620,7 @@ function bootTrackingHub() {
             }, 200);
         }, true);
 
-        // --- PREEMPTIVE LINK UPDATER ENGINE ---
-        const linkParameterMapping = {
-            'digistore24.com': 'ds24tr',
-            'ablefy.com': 'utm_term'
-        };
-
-        function getRootDomain(hostname) {
-            const parts = hostname.split('.');
-            if (parts.length <= 2) return hostname;
-            return parts.slice(-2).join('.');
-        }
-
-        ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
-            document.addEventListener(evt, function(event) {
-                try {
-                    const link = event.target.closest('a[href]');
-                    if (!link || !thubData.lead_id) return;
-                    
-                    let url = new URL(link.href, window.location.origin);
-                    const currentHost = window.location.hostname;
-                    const targetHost = url.hostname;
-                    
-                    if (targetHost && targetHost !== currentHost) {
-                        const currentRoot = getRootDomain(currentHost);
-                        const targetRoot = getRootDomain(targetHost);
-                        let paramName = 'utm_term'; 
-                        
-                        if (currentRoot === targetRoot) {
-                            paramName = 'thub';
-                        } else {
-                            for (const domain in linkParameterMapping) {
-                                if (targetHost.includes(domain)) {
-                                    paramName = linkParameterMapping[domain];
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (url.searchParams.get(paramName) !== thubData.lead_id) {
-                            url.searchParams.set(paramName, thubData.lead_id);
-                            link.href = url.toString();
-                        }
-                    }
-                } catch (e) {}
-            }, true);
-        });
-
-    }, 1500);
+    }, 500);
 }
 
 if (document.readyState === "complete" || document.readyState === "interactive") {
