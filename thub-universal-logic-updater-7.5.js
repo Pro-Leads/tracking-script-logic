@@ -1,4 +1,4 @@
-// --- V7.4_UNIVERSAL_EMAIL_GATEKEEPER_MASTER ---
+// --- V7.5_UNIVERSAL_SUBDOMAIN_ROUTER_MASTER ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -358,7 +358,6 @@ function bootTrackingHub() {
             const eventName = pageEvents.matchedTypEvent;
             const tempData = getTempUserData();
             
-            // Neuer Gatekeeper: Blockiert leere Payloads beim Seiten-Reload
             if (tempData.email && tempData.email.trim() !== "") {
                 const typPayload = {
                     'event': eventName, 
@@ -532,11 +531,16 @@ function bootTrackingHub() {
         }, true);
 
         // --- PREEMPTIVE LINK UPDATER ENGINE ---
-        // Mapping-Tabelle für Drittanbieter-Parameter
         const linkParameterMapping = {
             'digistore24.com': 'ds24tr',
             'ablefy.com': 'utm_term'
         };
+
+        function getRootDomain(hostname) {
+            const parts = hostname.split('.');
+            if (parts.length <= 2) return hostname;
+            return parts.slice(-2).join('.');
+        }
 
         ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
             document.addEventListener(evt, function(event) {
@@ -545,19 +549,25 @@ function bootTrackingHub() {
                     if (!link || !thubData.lead_id) return;
                     
                     let url = new URL(link.href, window.location.origin);
+                    const currentHost = window.location.hostname;
+                    const targetHost = url.hostname;
                     
-                    // Nur modifizieren, wenn das Ziel eine völlig andere Domain ist
-                    if (url.hostname && url.hostname !== window.location.hostname) {
-                        let paramName = 'utm_term'; // Der globale Fallback
+                    if (targetHost && targetHost !== currentHost) {
+                        const currentRoot = getRootDomain(currentHost);
+                        const targetRoot = getRootDomain(targetHost);
+                        let paramName = 'utm_term'; 
                         
-                        for (const domain in linkParameterMapping) {
-                            if (url.hostname.includes(domain)) {
-                                paramName = linkParameterMapping[domain];
-                                break;
+                        if (currentRoot === targetRoot) {
+                            paramName = 'thub';
+                        } else {
+                            for (const domain in linkParameterMapping) {
+                                if (targetHost.includes(domain)) {
+                                    paramName = linkParameterMapping[domain];
+                                    break;
+                                }
                             }
                         }
 
-                        // URLSearchParams regelt die Syntax (? oder &) nativ und überschreibt Duplikate
                         if (url.searchParams.get(paramName) !== thubData.lead_id) {
                             url.searchParams.set(paramName, thubData.lead_id);
                             link.href = url.toString();
