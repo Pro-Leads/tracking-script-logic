@@ -1,4 +1,4 @@
-// --- V7.7_HYBRID_QUEUE_MASTER ---
+// --- V7.8 ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -22,6 +22,7 @@ function bootTrackingHub() {
     }
 
     const storageExpiryMinutes = 43200; 
+    const utmExpiryMinutes = 10080;
     
     function setStorageWithExpiry(key, value, minutes) {
         try {
@@ -110,12 +111,23 @@ function bootTrackingHub() {
         thub_ad_id: "", fbc: "", fbp: "", lead_id: "", page_url: "", referrer: ""
     };
 
-    const standardParams = ['gclid', 'wbraid', 'gbraid', 'fbclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
-    standardParams.forEach(param => {
+    const clickIdParams = ['gclid', 'wbraid', 'gbraid', 'fbclid'];
+    clickIdParams.forEach(param => {
         const liveVal = getCleanParam(param);
         if (liveVal && liveVal !== "") {
             thubData[param] = liveVal;
             setStorageWithExpiry('thub_' + param, liveVal, storageExpiryMinutes);
+        } else {
+            thubData[param] = getStorageWithExpiry('thub_' + param);
+        }
+    });
+
+    const utmParams = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+    utmParams.forEach(param => {
+        const liveVal = getCleanParam(param);
+        if (liveVal && liveVal !== "") {
+            thubData[param] = liveVal;
+            setStorageWithExpiry('thub_' + param, liveVal, utmExpiryMinutes);
         } else {
             thubData[param] = getStorageWithExpiry('thub_' + param);
         }
@@ -148,7 +160,7 @@ function bootTrackingHub() {
     thubData.page_url = _thub_frozenHref.split(/[?#]/)[0];
     thubData.referrer = _thub_frozenReferrer;
 
-    // --- PREEMPTIVE LINK UPDATER ENGINE (ENTKOPPELT FÜR SOFORTIGEN SCHUTZ) ---
+    // --- PROACTIVE LINK UPDATER ENGINE (BRUTE FORCE & OBSERVER) ---
     const linkParameterMapping = {
         'digistore24.com': 'ds24tr',
         'ablefy.com': 'utm_term'
@@ -160,38 +172,76 @@ function bootTrackingHub() {
         return parts.slice(-2).join('.');
     }
 
-    ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
-        document.addEventListener(evt, function(event) {
-            try {
-                const link = event.target.closest('a[href]');
-                if (!link || !thubData.lead_id) return;
+    function injectLeadId(linkElement) {
+        if (!linkElement || !linkElement.hasAttribute('href') || !thubData.lead_id) return;
+        try {
+            let url = new URL(linkElement.href, window.location.origin);
+            const currentHost = window.location.hostname;
+            const targetHost = url.hostname;
+            
+            if (targetHost && targetHost !== currentHost) {
+                const currentRoot = getRootDomain(currentHost);
+                const targetRoot = getRootDomain(targetHost);
+                let paramName = 'utm_term'; 
                 
-                let url = new URL(link.href, window.location.origin);
-                const currentHost = window.location.hostname;
-                const targetHost = url.hostname;
-                
-                if (targetHost && targetHost !== currentHost) {
-                    const currentRoot = getRootDomain(currentHost);
-                    const targetRoot = getRootDomain(targetHost);
-                    let paramName = 'utm_term'; 
-                    
-                    if (currentRoot === targetRoot) {
-                        paramName = 'thub';
-                    } else {
-                        for (const domain in linkParameterMapping) {
-                            if (targetHost.includes(domain)) {
-                                paramName = linkParameterMapping[domain];
-                                break;
-                            }
+                if (currentRoot === targetRoot) {
+                    paramName = 'thub';
+                } else {
+                    for (const domain in linkParameterMapping) {
+                        if (targetHost.includes(domain)) {
+                            paramName = linkParameterMapping[domain];
+                            break;
                         }
                     }
-
-                    if (url.searchParams.get(paramName) !== thubData.lead_id) {
-                        url.searchParams.set(paramName, thubData.lead_id);
-                        link.href = url.toString();
-                    }
                 }
-            } catch (e) {}
+
+                if (url.searchParams.get(paramName) !== thubData.lead_id) {
+                    url.searchParams.set(paramName, thubData.lead_id);
+                    linkElement.href = url.toString();
+                }
+            }
+        } catch (e) {}
+    }
+
+    function scanAndInjectAllLinks() {
+        document.querySelectorAll('a[href]').forEach(injectLeadId);
+    }
+
+    scanAndInjectAllLinks();
+
+    if (typeof MutationObserver !== 'undefined') {
+        let observerTimeout;
+        let pendingMutations = [];
+        const observer = new MutationObserver((mutations) => {
+            pendingMutations.push(...mutations);
+            if (observerTimeout) clearTimeout(observerTimeout);
+            observerTimeout = setTimeout(() => {
+                const mutationsToProcess = pendingMutations;
+                pendingMutations = [];
+                mutationsToProcess.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1) { 
+                            if (node.tagName === 'A' && node.hasAttribute('href')) {
+                                injectLeadId(node);
+                            }
+                            if (node.querySelectorAll) {
+                                node.querySelectorAll('a[href]').forEach(injectLeadId);
+                            }
+                        }
+                    });
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'href' && mutation.target.tagName === 'A') {
+                        injectLeadId(mutation.target);
+                    }
+                });
+            }, 250);
+        });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
+    }
+
+    ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
+        document.addEventListener(evt, function(event) {
+            const link = event.target.closest('a[href]');
+            if (link) injectLeadId(link);
         }, true);
     });
 
@@ -272,29 +322,31 @@ function bootTrackingHub() {
             }, true);
         });
 
-        document.addEventListener('mousedown', (e) => {
-            const tag = e.target ? e.target.tagName : "";
-            const type = e.target ? e.target.getAttribute('type') : "";
-            if (tag === 'BUTTON' || (tag === 'INPUT' && (type === 'submit' || type === 'button')) || (e.target && e.target.closest && (e.target.closest('button') || e.target.closest('a')))) {
-                let cacheUpdated = false;
-                for (const key in config.userDataFields) {
-                    const selectors = config.userDataFields[key].split(',').map(s => s.trim());
-                    for (let s of selectors) {
-                        if (!s) continue;
-                        try {
-                            const fields = document.querySelectorAll(s);
-                            fields.forEach(f => {
-                                if(f.value && f.value.trim() !== "") {
-                                    window.thub_live_cache[key] = f.value.trim();
-                                    cacheUpdated = true;
-                                }
-                            });
-                        } catch(err) {}
+        ['mousedown', 'touchstart'].forEach(evt => {
+            document.addEventListener(evt, (e) => {
+                const tag = e.target ? e.target.tagName : "";
+                const type = e.target ? e.target.getAttribute('type') : "";
+                if (tag === 'BUTTON' || (tag === 'INPUT' && (type === 'submit' || type === 'button')) || (e.target && e.target.closest && (e.target.closest('button') || e.target.closest('a')))) {
+                    let cacheUpdated = false;
+                    for (const key in config.userDataFields) {
+                        const selectors = config.userDataFields[key].split(',').map(s => s.trim());
+                        for (let s of selectors) {
+                            if (!s) continue;
+                            try {
+                                const fields = document.querySelectorAll(s);
+                                fields.forEach(f => {
+                                    if(f.value && f.value.trim() !== "") {
+                                        window.thub_live_cache[key] = f.value.trim();
+                                        cacheUpdated = true;
+                                    }
+                                });
+                            } catch(err) {}
+                        }
                     }
+                    if (cacheUpdated) forcePersistCache();
                 }
-                if (cacheUpdated) forcePersistCache();
-            }
-        }, true);
+            }, true);
+        });
 
         const currentPath = _thub_frozenPathname;
 
@@ -310,10 +362,9 @@ function bootTrackingHub() {
         // --- HYBRID QUEUE SYSTEM ---
         window.thub_payload_queue = window.thub_payload_queue || [];
         let thub_fallback_timer = null;
-        let queue_flushed = false;
+        let bgScanner = null;
 
         function triggerEmergencyFetch() {
-            if (queue_flushed) return;
             while(window.thub_payload_queue.length > 0) {
                 let payload = window.thub_payload_queue.shift();
                 if (config.serverEndpoint && config.serverEndpoint.trim() !== "") {
@@ -324,7 +375,7 @@ function bootTrackingHub() {
                     }
                 }
             }
-            queue_flushed = true;
+            thub_fallback_timer = null;
         }
 
         function flushQueueToGTM() {
@@ -335,9 +386,24 @@ function bootTrackingHub() {
                 while(window.thub_payload_queue.length > 0) {
                     window.dataLayer.push(window.thub_payload_queue.shift());
                 }
-                if (thub_fallback_timer) clearTimeout(thub_fallback_timer);
-                queue_flushed = true;
+                if (thub_fallback_timer) {
+                    clearTimeout(thub_fallback_timer);
+                    thub_fallback_timer = null;
+                }
             }
+        }
+        
+        function startQueueScanner() {
+            if (bgScanner) return;
+            let scanCount = 0;
+            bgScanner = setInterval(() => {
+                scanCount++;
+                flushQueueToGTM();
+                if (scanCount >= 12 || window.thub_payload_queue.length === 0) {
+                    clearInterval(bgScanner);
+                    bgScanner = null;
+                }
+            }, 500);
         }
 
         function pushOrFetch(payload) {
@@ -357,6 +423,7 @@ function bootTrackingHub() {
                 }
             } else {
                 window.thub_payload_queue.push(payload);
+                startQueueScanner();
                 if (!thub_fallback_timer) {
                     thub_fallback_timer = setTimeout(triggerEmergencyFetch, 6000);
                 }
@@ -375,13 +442,6 @@ function bootTrackingHub() {
                 flushQueueToGTM();
             }, { passive: true });
         });
-
-        let scanCount = 0;
-        let bgScanner = setInterval(() => {
-            scanCount++;
-            flushQueueToGTM();
-            if (scanCount >= 12 || window.thub_payload_queue.length === 0) clearInterval(bgScanner);
-        }, 500);
 
         function evaluateCurrentPageEvents(path) {
             const events = [
@@ -470,7 +530,7 @@ function bootTrackingHub() {
                     "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V7.7 (Hybrid Queue) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V7.13 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
