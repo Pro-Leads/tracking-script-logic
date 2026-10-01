@@ -29,4 +29,11 @@
             country: "input[name='country']"
         }
     };
+
+    window.addEventListener('load', function() {
+        var script = document.createElement('script');
+        script.src = "https://cdn.jsdelivr.net/gh/Pro-Leads/tracking-script-logic@main/tracking-logic-wp-v5.4.js";
+        script.async = true;
+        document.body.appendChild(script);
+    });
 </script>
