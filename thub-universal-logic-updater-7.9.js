@@ -1,4 +1,4 @@
-// --- V7.8 ---
+// --- V7.9 ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -530,7 +530,7 @@ function bootTrackingHub() {
                     "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V7.13 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V7.9 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
@@ -614,6 +614,7 @@ function bootTrackingHub() {
                     'th_tracking_data_gbraid': thubData.gbraid
                 };
                 pushOrFetch(typPayload);
+                sessionStorage.removeItem('thub_temp_userdata');
             }
         }
 
