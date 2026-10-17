@@ -1,4 +1,4 @@
-// --- V7.9 ---
+// --- V7.10 ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -89,8 +89,7 @@ function bootTrackingHub() {
     }
 
     function saveTempUserData(dataObj) {
-        const item = { data: dataObj, expiry: Date.now() + 25000 };
-        sessionStorage.setItem('thub_temp_userdata', JSON.stringify(item));
+        sessionStorage.setItem('thub_temp_userdata', JSON.stringify({ data: dataObj }));
     }
 
     function getTempUserData() {
@@ -98,7 +97,6 @@ function bootTrackingHub() {
         if (!str) return {};
         try {
             const item = JSON.parse(str);
-            if (Date.now() > item.expiry) return {};
             return item.data || {};
         } catch(e) {
             return {};
@@ -160,7 +158,6 @@ function bootTrackingHub() {
     thubData.page_url = _thub_frozenHref.split(/[?#]/)[0];
     thubData.referrer = _thub_frozenReferrer;
 
-    // --- PROACTIVE LINK UPDATER ENGINE (BRUTE FORCE & OBSERVER) ---
     const linkParameterMapping = {
         'digistore24.com': 'ds24tr',
         'ablefy.com': 'utm_term'
@@ -245,7 +242,6 @@ function bootTrackingHub() {
         }, true);
     });
 
-    // --- VERKÜRZTES TIMEOUT: 500ms ---
     setTimeout(function() {
         
         thubData.fbp = getCookie('_fbp') || "";
@@ -351,7 +347,7 @@ function bootTrackingHub() {
         const currentPath = _thub_frozenPathname;
 
         function safeSetValue(element, value) {
-            if (element && value && element.value !== value) {
+            if (element && value !== undefined && value !== null && element.value !== value) {
                 element.value = value;
                 element.setAttribute('value', value); 
                 element.dispatchEvent(new Event('input', { bubbles: true }));
@@ -359,7 +355,6 @@ function bootTrackingHub() {
             }
         }
 
-        // --- HYBRID QUEUE SYSTEM ---
         window.thub_payload_queue = window.thub_payload_queue || [];
         let thub_fallback_timer = null;
         let bgScanner = null;
@@ -478,7 +473,6 @@ function bootTrackingHub() {
 
         const pageEvents = evaluateCurrentPageEvents(currentPath);
 
-        // --- DEBUGGER & WARNING ENGINE (REINTEGRIERT) ---
         function initLiveDebugger() {
             if (urlParams.get('thub-check-value') !== 'true') return;
 
@@ -530,7 +524,7 @@ function bootTrackingHub() {
                     "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V7.9 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V7.10 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
@@ -587,40 +581,80 @@ function bootTrackingHub() {
             const tempData = getTempUserData();
             
             if (tempData.email && tempData.email.trim() !== "") {
-                const typPayload = {
-                    'event': eventName, 
-                    'event_name': eventName, 
-                    'event_time': Math.floor(Date.now() / 1000), 
-                    'action_source': 'website',
-                    'event_id': generateUUID(), 
-                    'th_user_data_email_address': tempData.email,
-                    'th_user_data_phone_number': tempData.phone || "",
-                    'th_user_data_first_name': tempData.firstName || "",
-                    'th_user_data_last_name': tempData.lastName || "",
-                    'th_user_data_city': tempData.city || "",
-                    'th_user_data_postal_code': tempData.postalCode || "",
-                    'th_user_data_country': tempData.country || "",
-                    'th_tracking_data_funnel': tempData.funnel || "", 
-                    'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
-                    'th_tracking_data_utm_source': thubData.utm_source,
-                    'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
-                    'th_tracking_data_lead_id': thubData.lead_id,
-                    'th_tracking_data_user_agent': navigator.userAgent,
-                    'th_tracking_data_page_url': thubData.page_url,
-                    'th_tracking_data_fbc': thubData.fbc,
-                    'th_tracking_data_fbp': thubData.fbp,
-                    'th_tracking_data_gclid': thubData.gclid,
-                    'th_tracking_data_wbraid': thubData.wbraid,
-                    'th_tracking_data_gbraid': thubData.gbraid
-                };
-                pushOrFetch(typPayload);
                 sessionStorage.removeItem('thub_temp_userdata');
+                
+                const lockKey = `thub_lock_${eventName}_${currentPath}`;
+                let isLocked = false;
+                
+                try {
+                    const lockStr = localStorage.getItem(lockKey);
+                    if (lockStr) {
+                        const lockData = JSON.parse(lockStr);
+                        if (Date.now() < lockData.expiry) {
+                            isLocked = true;
+                        }
+                    }
+                } catch(e) {
+                    localStorage.removeItem(lockKey);
+                }
+
+                if (!isLocked) {
+                    const typPayload = {
+                        'event': eventName, 
+                        'event_name': eventName, 
+                        'event_time': Math.floor(Date.now() / 1000), 
+                        'action_source': 'website',
+                        'event_id': generateUUID(), 
+                        'th_user_data_email_address': tempData.email,
+                        'th_user_data_phone_number': tempData.phone || "",
+                        'th_user_data_first_name': tempData.firstName || "",
+                        'th_user_data_last_name': tempData.lastName || "",
+                        'th_user_data_city': tempData.city || "",
+                        'th_user_data_postal_code': tempData.postalCode || "",
+                        'th_user_data_country': tempData.country || "",
+                        'th_tracking_data_funnel': tempData.funnel || "", 
+                        'th_tracking_data_timestamp': Math.floor(Date.now() / 1000),
+                        'th_tracking_data_utm_source': thubData.utm_source,
+                        'th_tracking_data_thub_ad_id': thubData.thub_ad_id, 
+                        'th_tracking_data_lead_id': thubData.lead_id,
+                        'th_tracking_data_user_agent': navigator.userAgent,
+                        'th_tracking_data_page_url': thubData.page_url,
+                        'th_tracking_data_fbc': thubData.fbc,
+                        'th_tracking_data_fbp': thubData.fbp,
+                        'th_tracking_data_gclid': thubData.gclid,
+                        'th_tracking_data_wbraid': thubData.wbraid,
+                        'th_tracking_data_gbraid': thubData.gbraid
+                    };
+                    
+                    pushOrFetch(typPayload);
+                    
+                    try {
+                        localStorage.setItem(lockKey, JSON.stringify({ expiry: Date.now() + (72 * 60 * 60 * 1000) }));
+                        const keysToRemove = [
+                            'thub_gclid', 'thub_wbraid', 'thub_gbraid', 'thub_fbclid',
+                            'thub_utm_source', 'thub_utm_medium', 'thub_utm_campaign', 'thub_utm_content', 'thub_utm_term',
+                            'thub_ad_id'
+                        ];
+                        keysToRemove.forEach(k => localStorage.removeItem(k));
+                        
+                        thubData.gclid = "";
+                        thubData.wbraid = "";
+                        thubData.gbraid = "";
+                        thubData.fbclid = "";
+                        thubData.utm_source = "";
+                        thubData.utm_medium = "";
+                        thubData.utm_campaign = "";
+                        thubData.utm_content = "";
+                        thubData.utm_term = "";
+                        thubData.thub_ad_id = "";
+                    } catch(e) {}
+                }
             }
         }
 
         function fillAllFields() {
             function fillMultiple(selectorString, value) {
-                if (!selectorString || value == null) return;
+                if (!selectorString || value === undefined || value === null) return;
                 const selectors = selectorString.split(',').map(s => s.trim());
                 selectors.forEach(s => {
                     if (!s) return;
