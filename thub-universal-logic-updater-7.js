@@ -1,4 +1,4 @@
-// --- V7.11 ---
+// --- V7.12 ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -159,17 +159,8 @@ function bootTrackingHub() {
     thubData.referrer = _thub_frozenReferrer;
 
     // =========================================================================
-    // ON-CLICK OUTBOUND LINK DECORATOR (HYROS-STYLE)
+    // UNIVERSAL OUTBOUND LINK DECORATOR (V7.12 - ZERO MAINTENANCE)
     // =========================================================================
-    const linkParameterMapping = {
-        'digistore24.com': 'ds24tr',
-        'ablefy.com': 'utm_term',
-        'elopage.com': 'utm_term',
-        'copecart.com': 'utm_term',
-        'calendly.com': 'utm_term',
-        'typeform.com': 'utm_term'
-    };
-
     function getRootDomain(hostname) {
         if (!hostname) return '';
         const parts = hostname.split('.');
@@ -177,43 +168,86 @@ function bootTrackingHub() {
         return parts.slice(-2).join('.');
     }
 
-    ['click', 'auxclick', 'contextmenu'].forEach(evt => {
+    // Social-Media & Suchmaschinen, die nicht dekoriert werden sollen
+    const ignoredOutboundDomains = [
+        'facebook.com', 'instagram.com', 'linkedin.com', 'youtube.com', 
+        'tiktok.com', 'twitter.com', 'x.com', 'google.com'
+    ];
+
+    // Reagiert sofort beim Antippen / Herunterdrücken der Maustaste
+    ['pointerdown', 'mousedown', 'click', 'auxclick', 'contextmenu'].forEach(evt => {
         document.addEventListener(evt, function(event) {
-            if (document.body && (
+            // 1. Universal-Editor-Schutz (Elementor, WP, OnePage, ClickFunnels)
+            const isEditorMode = document.body && (
                 document.body.classList.contains('elementor-editor-active') || 
                 document.body.classList.contains('admin-bar') ||
-                window.location.search.includes('elementor-preview')
-            )) {
-                return;
-            }
+                window.location.search.includes('preview') ||
+                window.location.search.includes('editor') ||
+                (window.location.hostname.includes('onepage.io') && window.location.pathname.includes('/edit'))
+            );
+
+            if (isEditorMode) return;
+
             const link = event.target.closest('a[href]');
             if (!link || !thubData.lead_id) return;
+
             try {
+                // Nur echte HTTP/HTTPS-Links bearbeiten
+                if (!link.href.startsWith('http://') && !link.href.startsWith('https://')) return;
+
                 const url = new URL(link.href, window.location.origin);
                 const currentHost = window.location.hostname;
                 const targetHost = url.hostname;
+
                 if (!targetHost || targetHost === currentHost) return;
-                
+
                 const currentRoot = getRootDomain(currentHost);
                 const targetRoot = getRootDomain(targetHost);
-                
+
+                // 2. Interne Subdomains niemals dekorieren (teilen denselben Root-Cookie!)
                 if (currentRoot && targetRoot && currentRoot === targetRoot) {
                     return;
                 }
-                
-                let paramName = null;
-                for (const domain in linkParameterMapping) {
-                    if (targetHost.includes(domain)) {
-                        paramName = linkParameterMapping[domain];
-                        break;
+
+                // 3. Social Media ignorieren
+                if (ignoredOutboundDomains.some(d => targetHost.includes(d))) {
+                    return;
+                }
+
+                // 4. Parameter-Ermittlung über Kaskade:
+                const pageConfig = window.TrackingHubLeadConfig || {};
+                const customLinkParams = pageConfig.linkParams || {};
+
+                // Stufe A: Attribut direkt am Button (z.B. data-thub-param="subid")
+                let paramName = link.getAttribute('data-thub-param');
+
+                // Stufe B: Individuell konfiguriert in TrackingHubLeadConfig.linkParams
+                if (!paramName) {
+                    for (const domain in customLinkParams) {
+                        if (targetHost.includes(domain)) {
+                            paramName = customLinkParams[domain];
+                            break;
+                        }
                     }
                 }
-                
-                if (paramName && url.searchParams.get(paramName) !== thubData.lead_id) {
+
+                // Stufe C: Feste Sonderfälle (Digistore24)
+                if (!paramName) {
+                    if (targetHost.includes('digistore24.com')) paramName = 'ds24tr';
+                }
+
+                // Stufe D: Universeller Fallback für den Rest der Welt (AddEvent, Calendly, Zoom etc.)
+                if (!paramName) {
+                    paramName = 'utm_term';
+                }
+
+                // Lead-ID anhängen
+                if (url.searchParams.get(paramName) !== thubData.lead_id) {
                     url.searchParams.set(paramName, thubData.lead_id);
                     link.href = url.toString();
                 }
             } catch (e) {
+                // Lautloser Fallback
             }
         }, true);
     });
@@ -500,7 +534,7 @@ function bootTrackingHub() {
                     "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V7.11 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V7.12 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
