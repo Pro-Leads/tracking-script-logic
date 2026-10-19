@@ -1,4 +1,4 @@
-// --- V7.10 ---
+// --- V7.11 ---
 
 const _thub_frozenSearch = window.location.search;
 const _thub_frozenHash = window.location.hash;
@@ -158,87 +158,63 @@ function bootTrackingHub() {
     thubData.page_url = _thub_frozenHref.split(/[?#]/)[0];
     thubData.referrer = _thub_frozenReferrer;
 
+    // =========================================================================
+    // ON-CLICK OUTBOUND LINK DECORATOR (HYROS-STYLE)
+    // =========================================================================
     const linkParameterMapping = {
         'digistore24.com': 'ds24tr',
-        'ablefy.com': 'utm_term'
+        'ablefy.com': 'utm_term',
+        'elopage.com': 'utm_term',
+        'copecart.com': 'utm_term',
+        'calendly.com': 'utm_term',
+        'typeform.com': 'utm_term'
     };
 
     function getRootDomain(hostname) {
+        if (!hostname) return '';
         const parts = hostname.split('.');
         if (parts.length <= 2) return hostname;
         return parts.slice(-2).join('.');
     }
 
-    function injectLeadId(linkElement) {
-        if (!linkElement || !linkElement.hasAttribute('href') || !thubData.lead_id) return;
-        try {
-            let url = new URL(linkElement.href, window.location.origin);
-            const currentHost = window.location.hostname;
-            const targetHost = url.hostname;
-            
-            if (targetHost && targetHost !== currentHost) {
+    ['click', 'auxclick', 'contextmenu'].forEach(evt => {
+        document.addEventListener(evt, function(event) {
+            if (document.body && (
+                document.body.classList.contains('elementor-editor-active') || 
+                document.body.classList.contains('admin-bar') ||
+                window.location.search.includes('elementor-preview')
+            )) {
+                return;
+            }
+            const link = event.target.closest('a[href]');
+            if (!link || !thubData.lead_id) return;
+            try {
+                const url = new URL(link.href, window.location.origin);
+                const currentHost = window.location.hostname;
+                const targetHost = url.hostname;
+                if (!targetHost || targetHost === currentHost) return;
+                
                 const currentRoot = getRootDomain(currentHost);
                 const targetRoot = getRootDomain(targetHost);
-                let paramName = 'utm_term'; 
                 
-                if (currentRoot === targetRoot) {
-                    paramName = 'thub';
-                } else {
-                    for (const domain in linkParameterMapping) {
-                        if (targetHost.includes(domain)) {
-                            paramName = linkParameterMapping[domain];
-                            break;
-                        }
+                if (currentRoot && targetRoot && currentRoot === targetRoot) {
+                    return;
+                }
+                
+                let paramName = null;
+                for (const domain in linkParameterMapping) {
+                    if (targetHost.includes(domain)) {
+                        paramName = linkParameterMapping[domain];
+                        break;
                     }
                 }
-
-                if (url.searchParams.get(paramName) !== thubData.lead_id) {
+                
+                if (paramName && url.searchParams.get(paramName) !== thubData.lead_id) {
                     url.searchParams.set(paramName, thubData.lead_id);
-                    linkElement.href = url.toString();
+                    link.href = url.toString();
                 }
+            } catch (e) {
             }
-        } catch (e) {}
-    }
-
-    function scanAndInjectAllLinks() {
-        document.querySelectorAll('a[href]').forEach(injectLeadId);
-    }
-
-    scanAndInjectAllLinks();
-
-    if (typeof MutationObserver !== 'undefined') {
-        let observerTimeout;
-        let pendingMutations = [];
-        const observer = new MutationObserver((mutations) => {
-            pendingMutations.push(...mutations);
-            if (observerTimeout) clearTimeout(observerTimeout);
-            observerTimeout = setTimeout(() => {
-                const mutationsToProcess = pendingMutations;
-                pendingMutations = [];
-                mutationsToProcess.forEach(mutation => {
-                    mutation.addedNodes.forEach(node => {
-                        if (node.nodeType === 1) { 
-                            if (node.tagName === 'A' && node.hasAttribute('href')) {
-                                injectLeadId(node);
-                            }
-                            if (node.querySelectorAll) {
-                                node.querySelectorAll('a[href]').forEach(injectLeadId);
-                            }
-                        }
-                    });
-                    if (mutation.type === 'attributes' && mutation.attributeName === 'href' && mutation.target.tagName === 'A') {
-                        injectLeadId(mutation.target);
-                    }
-                });
-            }, 250);
-        });
-        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['href'] });
-    }
-
-    ['mouseover', 'touchstart', 'mousedown', 'focusin'].forEach(evt => {
-        document.addEventListener(evt, function(event) {
-            const link = event.target.closest('a[href]');
-            if (link) injectLeadId(link);
         }, true);
     });
 
@@ -524,7 +500,7 @@ function bootTrackingHub() {
                     "Tel": { Kategorie: "Formular", Wert: getLiveFieldValue('phone', config?.userDataFields?.phone) }
                 };
 
-                console.log("%c🔥 TrackingHub V7.10 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
+                console.log("%c🔥 TrackingHub V7.11 (Proactive Master) SSOT-Debugger", "color: #ff9800; font-size: 16px; font-weight: bold;");
                 console.table(debugData);
             }
 
