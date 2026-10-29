@@ -1,7 +1,7 @@
 <script>
     window.TrackingHubLeadConfig = {
         serverEndpoint: "https://sst.deinedomain.de/id", 
-        
+        serverEndpoint: atob("https://www.base64encode.org/"), //Code erstellen für Verschlüssselung
         cLead: "typ:/danke, form:/optin",
         cSchedule: "typ:/termin-bestaetigung",
         cPurchase: "typ:/kauf-erfolgreich",
@@ -32,7 +32,7 @@
 
     window.addEventListener('load', function() {
         var script = document.createElement('script');
-        script.src = "https://cdn.jsdelivr.net/gh/Pro-Leads/tracking-script-logic@main/thub-universal-logic-updater-7.8.js";
+        script.src = "https://cdn.jsdelivr.net/gh/Pro-Leads/tracking-script-logic@main/thub-universal-logic-updater-8.js";
         script.async = true;
         document.body.appendChild(script);
     });
